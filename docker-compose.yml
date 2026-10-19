@@ -11,6 +11,24 @@ services:
       POSTGRES_DB: mydb
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U myuser -d mydb"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  migrate:
+    image: flyway/flyway:10
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["-connectRetries=60", "migrate"]
+    environment:
+      FLYWAY_URL: jdbc:postgresql://db:5432/mydb
+      FLYWAY_USER: myuser
+      FLYWAY_PASSWORD: mypassword
+    volumes:
+      - ./backend/src/main/resources/db/migration:/flyway/sql:ro
 
 volumes:
   pgdata:

@@ -338,17 +338,14 @@ DB에는 공개 URL 대신 객체 키를 저장한다. 다운로드는 권한 �
 
 ## 8. Flyway 마이그레이션
 
-권장 파일 예시:
+현재 스키마는 아래 마이그레이션으로 관리한다. `docker compose up`은 PostgreSQL 준비를 확인한 뒤 `migrate` 서비스를 실행하며, 백엔드도 시작 시 동일한 Flyway 마이그레이션을 적용한다.
 
 ```text
 backend/src/main/resources/db/migration/
-  V1__create_user_and_reference_tables.sql
-  V2__create_move_request_and_image_tables.sql
-  V3__create_ai_quote_and_price_rule_tables.sql
-  V4__create_reservation_payment_tables.sql
-  V5__create_technician_assignment_and_review_tables.sql
-  V6__add_indexes_and_constraints.sql
+  V1__create_platform_schema.sql
 ```
+
+기존 DB 볼륨에 마이그레이션을 적용하려면 `docker compose up -d db migrate`를 실행한다. 최초 생성 전용 초기화 스크립트 대신 Flyway 이력을 사용하므로 이미 생성된 `pgdata`에도 적용할 수 있다.
 
 운영 규칙:
 1. 이미 배포된 마이그레이션 파일은 수정하지 않고 새 버전을 추가한다.
