@@ -343,9 +343,12 @@ DB에는 공개 URL 대신 객체 키를 저장한다. 다운로드는 권한 �
 ```text
 backend/src/main/resources/db/migration/
   V1__create_platform_schema.sql
+  V2__seed_appliance_types.sql
 ```
 
 기존 DB 볼륨에 마이그레이션을 적용하려면 `docker compose up -d db migrate`를 실행한다. 최초 생성 전용 초기화 스크립트 대신 Flyway 이력을 사용하므로 이미 생성된 `pgdata`에도 적용할 수 있다.
+
+`V2`는 API에서 선택 가능한 `AIR_CONDITIONER`, `REFRIGERATOR`, `WASHING_MACHINE`, `TV` 기준정보를 등록한다. 설치 요청은 `move_request`와 `move_item`을 같은 트랜잭션으로 생성하고, 로그인 사용자의 UUID를 `customer_id`로 저장한다. 희망 시각은 시간대가 포함된 ISO-8601 값을 `desired_start_at`에 저장한다.
 
 운영 규칙:
 1. 이미 배포된 마이그레이션 파일은 수정하지 않고 새 버전을 추가한다.

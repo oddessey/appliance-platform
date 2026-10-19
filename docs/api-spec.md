@@ -61,6 +61,8 @@
 
 인증 방식은 architecture 문서의 결정에 따른다. 쿠키 기반 세션/JWT를 사용하는 경우 쿠키는 `HttpOnly`, `Secure`, 적절한 `SameSite` 정책을 적용하고 CSRF 정책을 함께 검토한다. Bearer 토큰 방식이면 `Authorization: Bearer <token>`을 사용한다.
 
+이 MVP의 인증 구현은 HS256 Bearer JWT를 사용한다. `Authorization: Bearer <accessToken>`으로 전달하며 만료 시간은 30분이고 refresh token은 발급하지 않는다. `JWT_SECRET` 환경변수에는 Base64로 인코딩한 32바이트 이상의 키를 설정한다. 회원가입·로그인은 공개 API이며 설치 요청은 활성 `CUSTOMER` 역할에 한해 허용한다.
+
 | 역할 | 범위 |
 |---|---|
 | 비회원 | 공개 정보, 회원가입·로그인 |
@@ -76,12 +78,11 @@
 |---|---|---|---|---|
 | 인증 | POST | `/auth/signup` | 비회원 | 회원가입 |
 | 인증 | POST | `/auth/login` | 비회원 | 로그인 |
-| 인증 | POST | `/auth/logout` | 로그인 | 로그아웃 |
 | 인증 | GET | `/auth/me` | 로그인 | 현재 사용자 |
 | 회원 | PATCH | `/users/me` | 로그인 | 내 정보 수정 |
 | 회원 | PATCH | `/users/me/password` | 로그인 | 비밀번호 변경 |
 | 기준정보 | GET | `/appliance-types` | 공개 | 가전 종류 조회 |
-| 이전설치 | POST | `/move-requests` | 고객 | 요청 생성 |
+| 이전설치 | POST | `/installations` | 고객 | 설치 요청 생성 |
 | 이전설치 | GET | `/move-requests` | 고객/관리자 | 요청 목록 |
 | 이전설치 | GET | `/move-requests/{id}` | 소유 고객/관리자 | 요청 상세 |
 | 이전설치 | PATCH | `/move-requests/{id}` | 소유 고객/관리자 | 요청 수정 |
@@ -139,13 +140,15 @@
 
 ```json
 {
-  "id": "2f14bb3d-f5f8-4c99-92fb-f66a3cf76c8a",
-  "email": "customer@example.com",
-  "name": "홍길동",
-  "phone": "010-1234-5678",
-  "roles": ["CUSTOMER"],
-  "status": "ACTIVE",
-  "createdAt": "2026-10-19T10:20:30+09:00"
+  "accessToken": "<signed-jwt>",
+  "tokenType": "Bearer",
+  "expiresIn": 1800,
+  "user": {
+    "id": "2f14bb3d-f5f8-4c99-92fb-f66a3cf76c8a",
+    "email": "customer@example.com",
+    "name": "홍길동",
+    "roles": ["CUSTOMER"]
+  }
 }
 ```
 
@@ -153,35 +156,16 @@
 
 ### 3.2 이전설치 요청 생성
 
-`POST /api/v1/move-requests`
+`POST /api/v1/installations`
+
+요청 헤더: `Authorization: Bearer <accessToken>`
 
 ```json
 {
-  "origin": {
-    "address": "서울특별시 강남구 테헤란로 1",
-    "detailAddress": "101동 1201호"
-  },
-  "destination": {
-    "address": "경기도 성남시 분당구 판교로 2",
-    "detailAddress": "202동 803호"
-  },
-  "desiredStartAt": "2026-11-02T09:00:00+09:00",
-  "desiredEndAt": "2026-11-02T13:00:00+09:00",
-  "customerMemo": "오전 작업 희망",
-  "items": [
-    {
-      "applianceTypeCode": "WASHING_MACHINE",
-      "manufacturer": "Example",
-      "modelName": "WM-100",
-      "quantity": 1,
-      "dimensionsMm": { "width": 600, "height": 850, "depth": 650 },
-      "installationConditions": {
-        "elevatorAvailable": true,
-        "stairsRequired": false,
-        "additionalPiping": false
-      }
-    }
-  ]
+  "applianceTypeCode": "WASHING_MACHINE",
+  "originAddress": "서울특별시 강남구 테헤란로 1",
+  "destinationAddress": "경기도 성남시 분당구 판교로 2",
+  "desiredStartAt": "2026-11-02T09:00:00+09:00"
 }
 ```
 
@@ -190,15 +174,61 @@
 ```json
 {
   "id": "c8d4c8c0-89b5-48b6-9b13-0f93b7df4f3c",
-  "requestNo": "MR-20261102-000001",
-  "status": "DRAFT",
+  "requestNo": "INS-1A2B3C4D5E6F",
+  "status": "SUBMITTED",
   "createdAt": "2026-10-19T10:20:30+09:00"
 }
 ```
 
-요청 번호의 생성 형식은 예시이며 실제 번호 발급 정책은 서버에서 결정한다.
+`applianceTypeCode`는 활성 가전 종류 코드여야 하며, 희망 시각은 현재보다 미래인 시간대 포함 ISO-8601 형식이어야 한다. 주소와 가전 종류는 필수다. 요청은 인증된 고객 소유로 생성되고, 서버가 UUID와 요청 번호를 발급한다.
 
-### 3.3 이미지 업로드
+### 3.3 가전 종류 조회
+
+`GET /api/v1/appliance-types`는 활성 종류를 `displayOrder` 순으로 반환한다.
+
+```json
+[
+  { "code": "AIR_CONDITIONER", "name": "에어컨" },
+  { "code": "REFRIGERATOR", "name": "냉장고" },
+  { "code": "WASHING_MACHINE", "name": "세탁기" },
+  { "code": "TV", "name": "TV" }
+]
+```
+
+### 3.4 회원가입 및 로그인
+
+`POST /api/v1/auth/signup` 요청:
+
+```json
+{
+  "email": "customer@example.com",
+  "password": "Strong-pass-123",
+  "name": "홍길동",
+  "phone": "010-1234-5678"
+}
+```
+
+가입 성공은 `201 Created`, 로그인 `POST /api/v1/auth/login` 성공은 `200 OK`이며 두 응답 모두 다음 토큰 형식을 반환한다.
+
+```json
+{
+  "accessToken": "<signed-jwt>",
+  "tokenType": "Bearer",
+  "expiresIn": 1800,
+  "user": {
+    "id": "2f14bb3d-f5f8-4c99-92fb-f66a3cf76c8a",
+    "email": "customer@example.com",
+    "name": "홍길동",
+    "roles": ["CUSTOMER"]
+  }
+}
+```
+
+비밀번호는 최소 8자이며 UTF-8 기준 72바이트를 넘을 수 없고 해시만 저장한다. JWT는 브라우저 메모리에 보관하고 로그아웃 시 폐기한다. 이미 사용 중인 이메일은 `409 Conflict`, 인증 실패는 `401 Unauthorized`, 필드 검증 실패는 `400 Bad Request`다. 비활성 계정은 로그인할 수 없다.
+
+이 범위에는 서버 로그아웃 API나 refresh token이 포함되지 않는다. 브라우저의 로그아웃은 현재 메모리에서 access token을 제거하며, 이미 발급된 토큰은 만료 시각까지 유효하다.
+
+### 3.5 이미지 업로드
 
 `POST /api/v1/move-requests/{id}/images`
 
@@ -209,7 +239,7 @@
 
 서버는 파일 크기, MIME 타입, 실제 파일 형식, 요청 소유권을 검증한다. 응답에는 파일 메타데이터와 이미지 ID를 반환하고 내부 스토리지 비밀정보는 노출하지 않는다.
 
-### 3.4 AI 분석 요청 및 조회
+### 3.6 AI 분석 요청 및 조회
 
 `POST /api/v1/move-requests/{id}/analysis`
 
@@ -395,7 +425,7 @@ AI 결과는 확정 견적이 아니다. 낮은 신뢰도·불충분한 정보�
 
 ## 8. 미확정 사항
 
-- 최종 인증 방식(세션 쿠키 또는 JWT 쿠키/Bearer)
+- 설치 요청 이외의 API 인증·인가 범위
 - 이미지 업로드 직접 업로드 URL 발급 방식
 - 예약 슬롯 및 재예약 정책
 - 결제 취소/부분 환불 정책
