@@ -55,7 +55,6 @@ export function CustomerScreen({ showHistory, onViewHistory, onViewHome }: Custo
     const desiredStart = new Date(desiredDateTime.replace(" ", "T"));
     if (!originAddress || !destinationAddress) {
       setError("이전 주소와 설치 주소를 입력하거나 주소 검색에서 선택해 주세요.");
-      setError("이전 주소와 설치 주소를 입력하거나 주소 검색에서 선택해 주세요.");
       return;
     }
     if (!desiredDateTime || Number.isNaN(desiredStart.getTime()) || desiredStart.getTime() <= Date.now()) {

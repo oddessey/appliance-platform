@@ -68,7 +68,14 @@ export function TechnicianAdminPanel({ onReviewRequests }: TechnicianAdminPanelP
     return <PricingAdminPanel onClose={() => setShowPricing(false)} />;
   }
   if (showReservations) {
-    return <ReservationAdminPanel onClose={() => setShowReservations(false)} />;
+    return (
+      <ReservationAdminPanel
+        onReviewAssignments={() => {
+          setShowReservations(false);
+          onReviewRequests();
+        }}
+      />
+    );
   }
 
   return (

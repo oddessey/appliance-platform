@@ -14,7 +14,7 @@
 - Handle loading, errors, and empty states.
 
 ## Backend
-- Java 21 and Spring Boot.
+- Java 21 (LTS) and Spring Boot 3.5.x.
 - Use Controller -> Service -> Repository layers.
 - Validate request DTOs.
 - Implement role-based authorization.

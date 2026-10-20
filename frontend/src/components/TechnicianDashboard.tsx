@@ -17,8 +17,8 @@ import type {
 } from "../types/installation";
 
 const FILTERS: Array<{ label: string; value?: TechnicianAssignmentStatus }> = [
-  { label: "전체" },
   { label: "배정 대기", value: "PENDING" },
+  { label: "전체" },
   { label: "수락", value: "ACCEPTED" },
   { label: "이동 중", value: "ON_THE_WAY" },
   { label: "작업 중", value: "WORK_STARTED" },
@@ -33,7 +33,7 @@ interface TechnicianDashboardProps {
 
 export function TechnicianDashboard({ technicianName }: TechnicianDashboardProps) {
   const [assignments, setAssignments] = useState<TechnicianAssignment[]>([]);
-  const [status, setStatus] = useState<TechnicianAssignmentStatus | undefined>();
+  const [status, setStatus] = useState<TechnicianAssignmentStatus | undefined>("PENDING");
   const [page, setPage] = useState(0);
   const [totalElements, setTotalElements] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -45,8 +45,12 @@ export function TechnicianDashboard({ technicianName }: TechnicianDashboardProps
   const [profileOpen, setProfileOpen] = useState(false);
   const [uploadedEvidence, setUploadedEvidence] = useState<Record<string, TechnicianEvidence[]>>({});
 
-  const loadAssignments = useCallback(async (requestedPage: number, requestedStatus = status) => {
-    setLoading(true);
+  const loadAssignments = useCallback(async (
+    requestedPage: number,
+    requestedStatus = status,
+    showLoading = true,
+  ) => {
+    if (showLoading) setLoading(true);
     setError(null);
     try {
       const result = await getTechnicianAssignments(requestedPage, 20, requestedStatus);
@@ -56,13 +60,30 @@ export function TechnicianDashboard({ technicianName }: TechnicianDashboardProps
     } catch (requestError) {
       setError(toMessage(requestError));
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   }, [status]);
 
   useEffect(() => {
     void loadAssignments(0);
   }, [loadAssignments]);
+
+  useEffect(() => {
+    function refreshAssignments() {
+      if (document.visibilityState === "visible") {
+        void loadAssignments(page, status, false);
+      }
+    }
+
+    const intervalId = window.setInterval(refreshAssignments, 15_000);
+    window.addEventListener("focus", refreshAssignments);
+    document.addEventListener("visibilitychange", refreshAssignments);
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", refreshAssignments);
+      document.removeEventListener("visibilitychange", refreshAssignments);
+    };
+  }, [loadAssignments, page, status]);
 
   async function runAction(
     assignment: TechnicianAssignment,
@@ -146,7 +167,7 @@ export function TechnicianDashboard({ technicianName }: TechnicianDashboardProps
         <div>
           <span className="step-label">TECHNICIAN PORTAL</span>
           <h2 id="technician-dashboard-title">{technicianName} 기사님, 안녕하세요.</h2>
-          <p>배정받은 설치 작업을 확인하고 진행 상태를 관리하세요.</p>
+          <p>배정 대기 작업부터 표시합니다. 새 관리 배정은 15초마다 자동으로 반영됩니다.</p>
         </div>
         <div className="technician-heading-actions">
           <button className="text-button" onClick={() => setProfileOpen(true)} type="button">

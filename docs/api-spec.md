@@ -531,7 +531,7 @@ AI 결과는 확정 견적이 아니다. 낮은 신뢰도·불충분한 정보�
 
 자동 배정 스케줄러는 `technician.assignment.automatic-enabled=true`로 명시적으로 활성화한 경우에만 30초 주기로 실행된다. 자동 배정을 사용하지 않는 기본 설정에서는 요청 접수나 예약 확정만으로 기사가 자동 선택되지 않는다. 활성화한 경우에도 적격 후보가 없으면 배정하지 않고 다음 주기에 다시 확인한다. 예약 행 잠금과 기존 활성 배정 검사를 통해 자동·수동 처리 경합과 중복 활성 배정을 방지한다.
 
-관리자 화면은 `GET /api/v1/admin/installations`의 예약·최신 배정 정보를 이용해 예약된 요청의 후보를 조회하고, `GET /api/v1/admin/reservations/{id}/technician-candidates` 및 `POST /api/v1/admin/reservations/{id}/assignments`로 후보를 비교·배정한다. `GET /api/v1/admin/reservations?page=0&size=20&assignmentStatus=ACCEPTED`는 기사가 수락한 예약만 조회한다. 기존 `GET /api/v1/admin/reservations/pending-technician-assignment`는 운영 호환성을 위해 제공되지만 관리자 화면의 기본 수동 배정 진입점은 요청·AI 검토 화면이다.
+요청·AI 검토 화면은 `GET /api/v1/admin/reservations/pending-technician-assignment?page=0&size=20`으로 확정 예약 중 미배정 또는 거절된 예약을 별도 목록으로 보여준다. 각 예약에서 `GET /api/v1/admin/reservations/{id}/technician-candidates`로 적격 후보를 조회하고, 선택한 기사에 `POST /api/v1/admin/reservations/{id}/assignments`를 호출해 배정한다. 설치 요청 목록의 예약·최신 배정 정보에서도 같은 후보 조회·배정 기능을 제공한다. `GET /api/v1/admin/reservations?page=0&size=20&assignmentStatus=ACCEPTED`는 기사가 수락한 예약만 조회한다.
 
 후보는 진행 중 작업 수가 적은 순으로 정렬하고 최대 100명까지 반환한다. 자격 유형 및 예약별 필수 자격 코드가 정의되지 않아 프로필에 자격 정보가 등록되어 있고 관리자가 승인한 것을 기본 자격 확인으로 사용한다. 수동 배정도 적격 후보만 허용한다. 확정되지 않은 예약, 부적격 기사, 동일 예약의 중복 활성 배정은 `409 Conflict`를 반환한다. 적격 후보가 없으면 빈 후보 목록을 반환하고 임의 기사를 선택하지 않는다. 기사 목록은 `approvalStatus`, `page`, `size`로 검색하며 PATCH 본문은 `{"approvalStatus":"APPROVED","active":true}` 형식이다.
 

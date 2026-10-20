@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import { bootstrapAdmin, logIn, logOut, signUp } from "./api/auth";
-import { ApiError } from "./api/client";
+import { bootstrapAdmin, getCurrentMember, logIn, logOut, signUp } from "./api/auth";
+import { ApiError, getAccessToken, setAccessToken } from "./api/client";
 import { AccountSettings } from "./components/AccountSettings";
 import { AdminScreen } from "./screens/AdminScreen";
 import { CustomerScreen } from "./screens/CustomerScreen";
@@ -48,15 +48,51 @@ function screenTitle(screen: Screen): { title: string; description: string } {
 }
 
 export function App() {
-  const [authUser, setAuthUser] = useState<AuthUser | null>(null);
-  const [authMode, setAuthMode] = useState<AuthMode>(() =>
-    window.location.pathname.startsWith("/admin") || window.location.pathname.startsWith("/technician")
-      ? "login"
-      : "signup");
+  const [authUser, setAuthUser] = useState<AuthUser | null>(readCachedUser);
+  const [authMode, setAuthMode] = useState<AuthMode>(readAuthMode);
   const [path, setPath] = useState(window.location.pathname);
   const [accountSettingsOpen, setAccountSettingsOpen] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
+  const [sessionChecking, setSessionChecking] = useState(() => Boolean(getAccessToken()));
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    const token = getAccessToken();
+    if (!token) {
+      cacheUser(null);
+      setAuthUser(null);
+      setSessionChecking(false);
+      return;
+    }
+
+    let active = true;
+    getCurrentMember()
+      .then((member) => {
+        if (!active) return;
+        setAuthUser(member);
+        cacheUser(member);
+      })
+      .catch((error: unknown) => {
+        if (!active) return;
+        if (error instanceof ApiError && error.status === 401) {
+          setAccessToken(null);
+          setAuthUser(null);
+          cacheUser(null);
+          setAuthMode("login");
+          rememberAuthMode("login");
+          setErrorMessage("로그인이 만료되었습니다. 다시 로그인해 주세요.");
+        } else {
+          setErrorMessage(toMessage(error));
+        }
+      })
+      .finally(() => {
+        if (active) setSessionChecking(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     function syncPath() {
@@ -64,6 +100,20 @@ export function App() {
     }
     window.addEventListener("popstate", syncPath);
     return () => window.removeEventListener("popstate", syncPath);
+  }, []);
+
+  useEffect(() => {
+    function handleUnauthorized() {
+      setAuthUser(null);
+      cacheUser(null);
+      setAuthMode("login");
+      rememberAuthMode("login");
+      setAccountSettingsOpen(false);
+      setErrorMessage("로그인이 만료되었습니다. 다시 로그인해 주세요.");
+    }
+
+    window.addEventListener("appliance-platform:unauthorized", handleUnauthorized);
+    return () => window.removeEventListener("appliance-platform:unauthorized", handleUnauthorized);
   }, []);
 
   useEffect(() => {
@@ -108,6 +158,8 @@ export function App() {
           })
         : await logIn({ email, password });
       setAuthUser(response.user);
+      cacheUser(response.user);
+      rememberAuthMode(null);
       navigate(screenPath(defaultScreen(response.user)), true);
     } catch (error) {
       setErrorMessage(toMessage(error));
@@ -130,6 +182,8 @@ export function App() {
         phone: String(form.get("phone") ?? ""),
       });
       setAuthUser(response.user);
+      cacheUser(response.user);
+      rememberAuthMode(null);
       navigate("/admin", true);
     } catch (error) {
       setErrorMessage(toMessage(error));
@@ -145,17 +199,26 @@ export function App() {
       setErrorMessage(toMessage(error));
     } finally {
       setAuthUser(null);
+      cacheUser(null);
+      rememberAuthMode(null);
       setAccountSettingsOpen(false);
       navigate("/", true);
     }
   }
 
   function handleProfileChanged(profile: MemberProfile) {
-    setAuthUser((current) => current ? { ...current, name: profile.name } : current);
+    setAuthUser((current) => {
+      if (!current) return current;
+      const updated = { ...current, name: profile.name };
+      cacheUser(updated);
+      return updated;
+    });
   }
 
   function handlePasswordChanged() {
     setAuthUser(null);
+    cacheUser(null);
+    rememberAuthMode("login");
     setAccountSettingsOpen(false);
     navigate("/", true);
   }
@@ -271,17 +334,22 @@ export function App() {
         </section>
       ) : !authUser ? (
         <section className={`content-grid screen-content screen-content--${screen}`}>
-          <AuthScreen
-            authMode={authMode}
-            error={errorMessage}
-            loading={authLoading}
-            screen={screen}
-            onModeChange={(mode) => {
-              setAuthMode(mode);
-              setErrorMessage(null);
-            }}
-            onSubmit={(event) => void handleAuthSubmit(event)}
-          />
+          {sessionChecking ? (
+            <div aria-live="polite" className="form-card installation-card">로그인 상태를 확인하는 중...</div>
+          ) : (
+            <AuthScreen
+              authMode={authMode}
+              error={errorMessage}
+              loading={authLoading}
+              screen={screen}
+              onModeChange={(mode) => {
+                setAuthMode(mode);
+                rememberAuthMode(mode);
+                setErrorMessage(null);
+              }}
+              onSubmit={(event) => void handleAuthSubmit(event)}
+            />
+          )}
           <PublicInformationPanel />
         </section>
       ) : hasScreenAccess ? (
@@ -333,6 +401,66 @@ export function App() {
       </footer>
     </main>
   );
+}
+
+const AUTH_USER_KEY = "appliance-platform.auth-user";
+const AUTH_MODE_KEY = "appliance-platform.auth-mode";
+
+function readAuthMode(): AuthMode {
+  try {
+    if (window.sessionStorage.getItem(AUTH_MODE_KEY) === "login") return "login";
+  } catch {
+    return "signup";
+  }
+  return window.location.pathname.startsWith("/admin")
+      || window.location.pathname.startsWith("/technician")
+    ? "login"
+    : "signup";
+}
+
+function rememberAuthMode(mode: AuthMode | null): void {
+  try {
+    if (mode) {
+      window.sessionStorage.setItem(AUTH_MODE_KEY, mode);
+    } else {
+      window.sessionStorage.removeItem(AUTH_MODE_KEY);
+    }
+  } catch {
+    return;
+  }
+}
+
+function readCachedUser(): AuthUser | null {
+  try {
+    const value: unknown = JSON.parse(window.sessionStorage.getItem(AUTH_USER_KEY) ?? "null");
+    if (typeof value !== "object" || value === null) return null;
+    const user = value as Record<string, unknown>;
+    if (typeof user.id !== "string" || typeof user.email !== "string"
+        || typeof user.name !== "string" || !Array.isArray(user.roles)
+        || !user.roles.every((role) => typeof role === "string")) {
+      return null;
+    }
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      roles: user.roles,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function cacheUser(user: AuthUser | null): void {
+  try {
+    if (user) {
+      window.sessionStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+    } else {
+      window.sessionStorage.removeItem(AUTH_USER_KEY);
+    }
+  } catch {
+    return;
+  }
 }
 
 interface AuthScreenProps {

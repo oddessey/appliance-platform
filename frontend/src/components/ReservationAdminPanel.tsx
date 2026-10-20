@@ -10,7 +10,7 @@ import type { Reservation, ReservationStatus } from "../types/reservation";
 import type { TechnicianAssignmentStatus } from "../types/installation";
 
 interface ReservationAdminPanelProps {
-  onClose: () => void;
+  onReviewAssignments: () => void;
 }
 
 const FILTERS: Array<{ label: string; value?: ReservationStatus }> = [
@@ -22,7 +22,7 @@ const FILTERS: Array<{ label: string; value?: ReservationStatus }> = [
 ];
 const PAGE_SIZE = 20;
 
-export function ReservationAdminPanel({ onClose }: ReservationAdminPanelProps) {
+export function ReservationAdminPanel({ onReviewAssignments }: ReservationAdminPanelProps) {
   const [status, setStatus] = useState<ReservationStatus | undefined>("CONFIRMED");
   const [assignmentStatus, setAssignmentStatus] = useState<TechnicianAssignmentStatus | undefined>();
   const [page, setPage] = useState(0);
@@ -124,13 +124,13 @@ export function ReservationAdminPanel({ onClose }: ReservationAdminPanelProps) {
         <div>
           <span className="step-label">RESERVATION MANAGEMENT</span>
           <h2 id="reservation-admin-title">예약 관리</h2>
-          <p>확정 예약을 조회하고 일정 변경 또는 취소를 처리합니다.</p>
+          <p>예약 일정을 관리하고 기사 배정 상태 및 담당 기사를 확인합니다.</p>
         </div>
         <div className="technician-heading-actions">
           <button className="text-button" disabled={loading} onClick={() => void loadReservations()} type="button">
             새로고침
           </button>
-          <button className="text-button" onClick={onClose} type="button">관리 화면으로</button>
+          <button className="text-button" onClick={onReviewAssignments} type="button">요청·AI 검토로</button>
         </div>
       </div>
 
@@ -153,6 +153,7 @@ export function ReservationAdminPanel({ onClose }: ReservationAdminPanelProps) {
           { label: "모든 배정 상태", value: undefined },
           { label: "기사 수락 대기", value: "PENDING" as const },
           { label: "기사 수락 완료", value: "ACCEPTED" as const },
+          { label: "기사 거절", value: "REJECTED" as const },
         ]).map((filter) => (
           <button
             aria-selected={assignmentStatus === filter.value}
@@ -209,6 +210,14 @@ export function ReservationAdminPanel({ onClose }: ReservationAdminPanelProps) {
                   </div>
                   {reservation.customerMemo && <div><dt>고객 메모</dt><dd>{reservation.customerMemo}</dd></div>}
                 </dl>
+                {reservation.technicianAssignmentStatus === "REJECTED" && (
+                  <div className="reservation-reassignment">
+                    <p className="empty-state">요청·AI 검토 화면에서 적격 후보를 다시 조회해 재배정할 수 있습니다.</p>
+                    <button className="secondary-button" onClick={onReviewAssignments} type="button">
+                      요청·AI 검토에서 재배정
+                    </button>
+                  </div>
+                )}
                 {editingId === reservation.id ? (
                   <form className="reservation-form" onSubmit={(event) => void saveSchedule(event, reservation)}>
                     <label>

@@ -3,6 +3,8 @@ AI가전이전설치 플랫폼 프로젝트
 
 ## 로컬 개발 실행
 
+백엔드 빌드와 실행에는 Java 21 (LTS)와 Maven이 필요합니다.
+
 1. PostgreSQL과 스키마를 준비합니다: `docker compose up -d db migrate`.
 2. 백엔드 실행 전에 Base64 32바이트 JWT 비밀키를 `JWT_SECRET` 환경변수로 설정합니다. PowerShell에서는 다음 명령으로 생성할 수 있습니다.
 

@@ -61,7 +61,7 @@ export function AdminScreen({ currentMemberId }: AdminScreenProps) {
             <PricingAdminPanel onClose={() => setActiveModule("installations")} />
           )}
           {activeModule === "reservations" && (
-            <ReservationAdminPanel onClose={() => setActiveModule("installations")} />
+            <ReservationAdminPanel onReviewAssignments={() => setActiveModule("installations")} />
           )}
         </div>
       </div>
@@ -69,10 +69,10 @@ export function AdminScreen({ currentMemberId }: AdminScreenProps) {
         <span className="step-label">ADMIN WORKFLOW</span>
         <h2>운영 흐름을<br />순서대로 확인하세요.</h2>
         <ol className="process-list">
-          <li><span>1</span><div><strong>요청·분석 검토</strong><small>접수 정보와 최신 AI 결과를 확인합니다.</small></div></li>
-          <li><span>2</span><div><strong>회원·기사 관리</strong><small>역할, 계정 상태, 기사 승인 정보를 검토합니다.</small></div></li>
-          <li><span>3</span><div><strong>가격·견적 관리</strong><small>활성 정책을 확인하고 검증된 견적을 발행합니다.</small></div></li>
-          <li><span>4</span><div><strong>예약·배정 관리</strong><small>일정과 적격 기사 배정 현황을 확인합니다.</small></div></li>
+          <li><span>1</span><div><strong>기사 프로필 승인</strong><small>기사·배정 관리에서 자격정보를 검토하고 기사와 계정을 활성화합니다.</small></div></li>
+          <li><span>2</span><div><strong>확정 예약에 기사 배정</strong><small>요청·AI 검토에서 후보를 조회하고 적격 기사 한 명을 선택합니다.</small></div></li>
+          <li><span>3</span><div><strong>기사 수락·거절 처리</strong><small>기사가 작업을 수락하거나 거절합니다. 거절 시 예약 관리에서 확인해 재배정합니다.</small></div></li>
+          <li><span>4</span><div><strong>수락된 예약 확인</strong><small>예약 관리에서 기사 수락 완료를 필터링해 담당 기사와 예약을 확인합니다.</small></div></li>
         </ol>
       </aside>
     </>

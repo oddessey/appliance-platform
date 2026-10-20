@@ -61,7 +61,7 @@
 | 구분 | 기술 |
 |---|---|
 | 프론트엔드 | React, TypeScript, Vite |
-| 백엔드 | Java 21, Spring Boot 3.5.x |
+| 백엔드 | Java 21 (LTS), Spring Boot 3.5.x |
 | 빌드 도구 | Maven Wrapper |
 | 데이터베이스 | PostgreSQL 16 |
 | 데이터 접근 | Spring Data JPA |

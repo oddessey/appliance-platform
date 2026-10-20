@@ -14,9 +14,9 @@ export function TechnicianScreen({ technicianName }: TechnicianScreenProps) {
         <span className="step-label">WORK FLOW</span>
         <h2>안전하고 정확한<br />작업 진행</h2>
         <ol className="process-list">
-          <li><span>1</span><div><strong>배정 확인</strong><small>작업 주소와 고객 요청을 확인하세요.</small></div></li>
-          <li><span>2</span><div><strong>진행 상태 업데이트</strong><small>출발·작업 시작 상태를 기록하세요.</small></div></li>
-          <li><span>3</span><div><strong>작업 완료</strong><small>작업이 끝나면 완료 처리하세요.</small></div></li>
+          <li><span>1</span><div><strong>배정 검토 및 응답</strong><small>작업 일정과 주소를 확인하고 수락하거나 거절 사유를 제출하세요.</small></div></li>
+          <li><span>2</span><div><strong>출발·작업 시작</strong><small>수락한 작업은 출발 및 작업 시작 상태를 순서대로 기록하세요.</small></div></li>
+          <li><span>3</span><div><strong>작업 완료</strong><small>작업이 끝나면 완료 처리하고 필요한 증빙을 등록하세요.</small></div></li>
         </ol>
         <div className="support-note">
           <span aria-hidden="true">✦</span>
