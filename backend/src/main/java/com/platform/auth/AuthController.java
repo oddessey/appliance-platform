@@ -23,6 +23,11 @@ public class AuthController {
         return ResponseEntity.status(HttpStatus.CREATED).body(authService.signUp(request));
     }
 
+    @PostMapping("/bootstrap-admin")
+    public ResponseEntity<AuthResponse> bootstrapAdmin(@Valid @RequestBody BootstrapAdminRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(authService.bootstrapAdmin(request));
+    }
+
     @PostMapping("/login")
     public AuthResponse login(@Valid @RequestBody LoginRequest request) {
         return authService.login(request);

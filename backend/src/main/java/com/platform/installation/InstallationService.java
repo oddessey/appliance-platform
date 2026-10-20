@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Locale;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -36,7 +37,21 @@ public class InstallationService {
                 request.originAddress().strip(),
                 request.destinationAddress().strip(),
                 request.desiredStartAt(),
-                applianceType.id()
+                applianceType.id(),
+                request.carryingDistanceMeters(),
+                request.floorCount(),
+                request.additionalPipingMeters()
         );
+    }
+
+    @Transactional(readOnly = true)
+    public InstallationHistoryResponse listByCustomer(UUID customerId, int page, int size) {
+        if (page < 0 || size < 1 || size > 100 || (long) page * size > Integer.MAX_VALUE) {
+            throw new InvalidInstallationPageException();
+        }
+        List<InstallationHistoryItem> content = installationRepository.findByCustomerId(
+                customerId, size, page * size);
+        return new InstallationHistoryResponse(page, size,
+                installationRepository.countByCustomerId(customerId), content);
     }
 }

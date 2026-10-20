@@ -1,0 +1,14 @@
+com\platform\technician\TechnicianServiceTest.class
+com\platform\config\JwtTokenServiceTest.class
+com\platform\installation\CreateInstallationRequestValidationTest.class
+com\platform\pricing\PricingServiceTest.class
+com\platform\auth\PasswordValidatorTest.class
+com\platform\installation\InstallationServiceTest.class
+com\platform\technician\TechnicianProfileServiceTest.class
+com\platform\installation\InstallationApiContractTest.class
+com\platform\auth\AuthServiceTest.class
+com\platform\member\MemberServiceTest.class
+com\platform\technician\TechnicianEvidenceServiceTest.class
+com\platform\technician\TechnicianAdminServiceTest.class
+com\platform\config\SecurityConfigTest.class
+com\platform\reservation\ReservationServiceTest.class

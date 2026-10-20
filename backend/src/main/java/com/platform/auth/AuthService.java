@@ -1,5 +1,6 @@
 package com.platform.auth;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationServiceException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -8,6 +9,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.security.MessageDigest;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.UUID;
@@ -19,6 +21,9 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtTokenService jwtTokenService;
+
+    @Value("${security.admin-bootstrap-key:}")
+    private String adminBootstrapKey = "";
 
     public AuthService(
             MemberRepository memberRepository,
@@ -38,6 +43,33 @@ public class AuthService {
         Account account = memberRepository.create(
                 UUID.randomUUID(),
                 email,
+                passwordEncoder.encode(request.password()),
+                request.name().strip(),
+                request.phone().strip(),
+                request.accountType()
+        );
+        return jwtTokenService.createToken(account);
+    }
+
+    @Transactional
+    public AuthResponse bootstrapAdmin(BootstrapAdminRequest request) {
+        if (adminBootstrapKey == null || adminBootstrapKey.isBlank()) {
+            throw new AdminBootstrapDisabledException();
+        }
+        if (!MessageDigest.isEqual(
+                adminBootstrapKey.getBytes(StandardCharsets.UTF_8),
+                request.bootstrapKey().getBytes(StandardCharsets.UTF_8))) {
+            throw new InvalidAdminBootstrapKeyException();
+        }
+
+        memberRepository.acquireAdminBootstrapLock();
+        if (memberRepository.hasAdminRole()) {
+            throw new AdminBootstrapDisabledException();
+        }
+
+        Account account = memberRepository.createAdmin(
+                UUID.randomUUID(),
+                normalizeEmail(request.email()),
                 passwordEncoder.encode(request.password()),
                 request.name().strip(),
                 request.phone().strip()
@@ -62,6 +94,11 @@ public class AuthService {
                 .orElseThrow(() -> new AuthenticationServiceException("Authenticated account was not found"));
         memberRepository.updateLastLogin(account.id());
         return jwtTokenService.createToken(account);
+    }
+
+    @Transactional
+    public void logout(UUID accountId) {
+        memberRepository.invalidateTokens(accountId);
     }
 
     private String normalizeEmail(String email) {

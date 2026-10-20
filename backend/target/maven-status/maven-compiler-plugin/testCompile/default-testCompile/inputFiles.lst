@@ -1,0 +1,15 @@
+D:\smartmove-ai\appliance-platform\backend\src\test\java\com\platform\auth\AuthServiceTest.java
+D:\smartmove-ai\appliance-platform\backend\src\test\java\com\platform\auth\PasswordValidatorTest.java
+D:\smartmove-ai\appliance-platform\backend\src\test\java\com\platform\config\JwtTokenServiceTest.java
+D:\smartmove-ai\appliance-platform\backend\src\test\java\com\platform\config\SecurityConfigTest.java
+D:\smartmove-ai\appliance-platform\backend\src\test\java\com\platform\installation\AdminInstallationServiceTest.java
+D:\smartmove-ai\appliance-platform\backend\src\test\java\com\platform\installation\CreateInstallationRequestValidationTest.java
+D:\smartmove-ai\appliance-platform\backend\src\test\java\com\platform\installation\InstallationApiContractTest.java
+D:\smartmove-ai\appliance-platform\backend\src\test\java\com\platform\installation\InstallationServiceTest.java
+D:\smartmove-ai\appliance-platform\backend\src\test\java\com\platform\member\MemberServiceTest.java
+D:\smartmove-ai\appliance-platform\backend\src\test\java\com\platform\pricing\PricingServiceTest.java
+D:\smartmove-ai\appliance-platform\backend\src\test\java\com\platform\reservation\ReservationServiceTest.java
+D:\smartmove-ai\appliance-platform\backend\src\test\java\com\platform\technician\TechnicianAdminServiceTest.java
+D:\smartmove-ai\appliance-platform\backend\src\test\java\com\platform\technician\TechnicianEvidenceServiceTest.java
+D:\smartmove-ai\appliance-platform\backend\src\test\java\com\platform\technician\TechnicianProfileServiceTest.java
+D:\smartmove-ai\appliance-platform\backend\src\test\java\com\platform\technician\TechnicianServiceTest.java

@@ -31,6 +31,7 @@ public class JwtTokenService {
                 .subject(account.id().toString())
                 .claim("email", account.email())
                 .claim("roles", account.roles())
+                .claim("authVersion", account.authVersion())
                 .build();
         String accessToken = jwtEncoder.encode(JwtEncoderParameters.from(
                 JwsHeader.with(MacAlgorithm.HS256).build(), claims)).getTokenValue();

@@ -82,6 +82,7 @@ erDiagram
 | 기사 | `technician_profile` | 기사 프로필 및 승인 상태 |
 | 기사 | `technician_service_area` | 기사 서비스 지역 |
 | 기사 | `technician_capability` | 취급 가능한 가전 품목 |
+| 기사 | `technician_availability` | ISO 요일별 반복 작업 가능 시간 |
 | 배정/작업 | `technician_assignment` | 예약별 기사 배정 |
 | 배정/작업 | `work_event` | 배정·수락·작업·완료 이력 |
 | 리뷰 | `review` | 완료 예약에 대한 고객 리뷰 |
@@ -99,6 +100,7 @@ erDiagram
 | `name` | varchar(100) | Y | 이름 |
 | `phone` | varchar(30) | Y | 연락처 |
 | `status` | varchar(20) | Y | `ACTIVE`, `SUSPENDED`, `WITHDRAWN` |
+| `auth_version` | bigint | Y | 비밀번호·역할·상태 변경 및 로그아웃 시 토큰 무효화 버전 |
 | `email_verified_at` | timestamptz | N | 이메일 인증 시각 |
 | `last_login_at` | timestamptz | N | 마지막 로그인 |
 | `created_at` | timestamptz | Y | 생성 시각 |
@@ -217,6 +219,7 @@ DB에는 공개 URL 대신 객체 키를 저장한다. 다운로드는 권한 �
 | `conditions` | jsonb | Y | 적용 조건 |
 | `calculation_type` | varchar(20) | Y | `FIXED`, `PER_UNIT`, `PERCENTAGE` 등 |
 | `amount` | numeric(12,2) | Y | 계산 기준 금액/값 |
+| `version` | integer | Y | 변경 시 증가하는 가격 규칙 버전 |
 | `priority` | integer | Y | 적용 우선순위 |
 | `active` | boolean | Y | 활성 여부 |
 | `valid_from` / `valid_to` | timestamptz | N | 유효 기간 |
@@ -258,6 +261,10 @@ DB에는 공개 URL 대신 객체 키를 저장한다. 다운로드는 권한 �
 | `line_amount` | numeric(12,2) | Y | 항목 금액 |
 | `rule_snapshot` | jsonb | N | 적용 규칙 스냅샷 |
 
+견적 발행 시 `quote.calculation_snapshot`은 계산 시점의 입력 조건, 적용 규칙 ID·코드·버전·금액, 세율을 보존한다. `quote_line.rule_snapshot`은 각 상세 항목의 규칙 전체를 보존한다. 가격 규칙을 수정해도 기존 확정 견적은 변경되지 않는다.
+
+`move_item.installation_conditions`에는 견적 입력값인 운반 거리(m), 작업 층수, 추가 배관(m)을 JSON으로 저장한다.
+
 ### 5.11 `reservation` — 예약
 
 | 컬럼 | 타입 | 필수 | 설명 |
@@ -272,9 +279,13 @@ DB에는 공개 URL 대신 객체 키를 저장한다. 다운로드는 권한 �
 | `customer_memo` | text | N | 예약 메모 |
 | `confirmed_at` | timestamptz | N | 확정 시각 |
 | `cancelled_at` | timestamptz | N | 취소 시각 |
+| `idempotency_key` | varchar(100) | N | 예약 생성 재시도 중복 방지 키 |
+| `idempotency_request_hash` | varchar(64) | N | 멱등 키에 대응하는 요청 본문 SHA-256 |
 | `created_at` / `updated_at` | timestamptz | Y | 생성·수정 시각 |
 
-상태: `PENDING`, `CONFIRMED`, `RESCHEDULE_REQUESTED`, `CANCELLED`, `EXPIRED`, `COMPLETED`. 동시 예약 방지는 Redis Lock을 보조적으로 사용하고 DB 트랜잭션 및 충돌 검증을 최종 방어선으로 둔다.
+상태: `PENDING`, `CONFIRMED`, `RESCHEDULE_REQUESTED`, `CANCELLED`, `EXPIRED`, `COMPLETED`. 고객은 최신 수락 견적에 대해 희망 시작·종료 시각을 직접 지정하며 충돌이 없으면 즉시 `CONFIRMED`가 된다. 고객·관리자의 일정 변경도 충돌 검사와 DB 제약을 거쳐 즉시 반영한다. `PENDING`은 기존 데이터 호환 상태이며 생성 24시간 후 만료한다.
+
+`V6`는 멱등 키와 요청 해시, 설치 요청별 활성 예약 유일 인덱스를 추가한다. 서로 다른 요청의 시간 구간 중첩은 허용하며, 기사별 작업 시간과 충돌 검증은 기사 배정 단계에서 수행한다. 예약 생성·변경 시 설치 요청 행 잠금과 DB 부분 유일 인덱스가 동시 요청의 최종 방어선이다.
 
 ### 5.12 `payment` — 결제
 
@@ -304,10 +315,13 @@ DB에는 공개 URL 대신 객체 키를 저장한다. 다운로드는 권한 �
 - `technician_profile`: `id`, `user_id`(unique FK), `approval_status`, `business_name`, `license_info`(필요 시 최소 정보), `active`, timestamps.
 - `technician_service_area`: `id`, `technician_id`, `region_code`, `active`; `(technician_id, region_code)` unique.
 - `technician_capability`: `technician_id`, `appliance_type_id`, `active`; 복합 PK.
-- `technician_assignment`: `id`, `reservation_id`, `technician_id`, `status`, `assigned_at`, `responded_at`, `completed_at`, `rejection_reason`, timestamps.
+- `technician_availability`: `id`, `technician_id`, `day_of_week`(ISO 1~7), `start_time`, `end_time`, `active`, timestamps. 슬롯은 자정 내 단일 구간이며 같은 요일의 겹치는 구간은 서비스 계층에서 거부한다.
+- `technician_assignment`: `id`, `reservation_id`, `technician_id`, `status` (`PENDING`, `ACCEPTED`, `REJECTED`, `ON_THE_WAY`, `WORK_STARTED`, `WORK_COMPLETED`, `CANCELLED`), `assigned_at`, `responded_at`, `completed_at`, `rejection_reason`, timestamps. 예약 취소·일정 변경 시 시작 전 배정을 `CANCELLED`로 전환하고 `work_event`에 기록한다.
 - `work_event`: `id`, `assignment_id`, `event_type`, `note`, `evidence_image_id`(nullable FK), `created_by`, `created_at`.
 
-기사 자동 매칭은 MVP에서 품목·지역·일정·승인 상태와 충돌 여부를 기준으로 규칙 기반 처리한다. AI 최적화는 추후 확장한다.
+기사 자동 매칭은 MVP에서 활성·승인 및 활성 사용자, 입력된 자격정보, 모든 요청 품목 취급, 출발·도착 시·도/시·군·구 서비스 지역, 한국 표준시 기준 주간 가능 시간, 기존 미완료 작업과의 시간 충돌 여부를 모두 확인한다. 적격 후보는 진행 중 배정 건수가 적은 순으로 추천하며, 실제 배정은 관리자가 후보를 선택한다. 프로필별 자격정보는 기존 `license_info` 자유 입력란에 보관하며, 자격 코드 종류가 확정되기 전에는 예약별 자격 조건 자동 비교를 하지 않고 관리자 승인으로 확인한다. AI 최적화는 추후 확장한다.
+
+작업 증빙 이미지는 `request_image.purpose = 'WORK_PROOF'`로 등록하고 `work_event.evidence_image_id`로 연결한다. 현재 로컬 개발용 저장소는 `WORK_EVIDENCE_PATH`(기본 `uploads/work-evidence`)의 파일 시스템을 사용하며, 운영 배포에서는 공유 영속 스토리지/객체 스토리지 어댑터로 교체하고 백업·보존 정책을 적용해야 한다.
 
 ### 5.15 `review` — 리뷰
 
@@ -344,11 +358,23 @@ DB에는 공개 URL 대신 객체 키를 저장한다. 다운로드는 권한 �
 backend/src/main/resources/db/migration/
   V1__create_platform_schema.sql
   V2__seed_appliance_types.sql
+  V3__add_account_auth_version.sql
+  V4__add_technician_availability.sql
+  V5__version_price_rules.sql
+  V6__reservation_lifecycle_constraints.sql
 ```
 
 기존 DB 볼륨에 마이그레이션을 적용하려면 `docker compose up -d db migrate`를 실행한다. 최초 생성 전용 초기화 스크립트 대신 Flyway 이력을 사용하므로 이미 생성된 `pgdata`에도 적용할 수 있다.
 
 `V2`는 API에서 선택 가능한 `AIR_CONDITIONER`, `REFRIGERATOR`, `WASHING_MACHINE`, `TV` 기준정보를 등록한다. 설치 요청은 `move_request`와 `move_item`을 같은 트랜잭션으로 생성하고, 로그인 사용자의 UUID를 `customer_id`로 저장한다. 희망 시각은 시간대가 포함된 ISO-8601 값을 `desired_start_at`에 저장한다.
+
+`V3`는 로그아웃, 비밀번호·역할·계정 상태 변경 시 기존 JWT를 즉시 무효화하기 위한 `app_user.auth_version`을 추가한다. 인증된 요청은 JWT의 인증 버전 및 계정 활성 상태를 DB의 현재 값과 대조한다.
+
+`V4`는 기사 주간 작업 가능 시간을 관리하는 `technician_availability`를 추가한다.
+
+`V5`는 가격 규칙에 버전 번호를 추가한다. 최초 규칙은 버전 1이며 관리자가 규칙을 수정할 때마다 버전을 증가시킨다. 견적 소계는 기본 비용과 선택한 추가 작업 단가를 합산하고, 할인율은 소계에 적용한 뒤 할인 후 금액에 MVP 세율 10%를 더한다. 견적 유효기간은 7일이다. 세율과 유효기간은 초기 운영 정책값이며 변경 전 문서·화면·계약을 함께 검토한다.
+
+`V6`는 예약 멱등성 및 요청별 중복 예약 방지 제약을 적용한다.
 
 운영 규칙:
 1. 이미 배포된 마이그레이션 파일은 수정하지 않고 새 버전을 추가한다.
@@ -361,9 +387,6 @@ backend/src/main/resources/db/migration/
 다음은 요구사항에서 구체값이 정해지지 않았으므로 구현 착수 전 결정한다.
 
 - 주소 정규화 및 우편번호/좌표 제공자
-- 예약 슬롯 단위, 작업 소요시간 산정 방식
-- 세금 포함/별도 표시 정책 및 통화
-- 견적 유효기간과 재견적 정책
 - 환불·취소 수수료 정책
 - 이미지 파일 크기·형식·보존 기간
 - 개인정보 보유 기간 및 탈퇴 후 처리

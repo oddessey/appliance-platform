@@ -10,6 +10,7 @@ public record Account(
         String name,
         String phone,
         String status,
+        long authVersion,
         List<String> roles
 ) {
 }
