@@ -2,6 +2,7 @@ package com.platform.pricing;
 
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowCallbackHandler;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
@@ -380,7 +381,7 @@ public class PricingRepository {
                 FROM quote_line
                 WHERE quote_id IN (%s)
                 ORDER BY quote_id, id
-                """.formatted(placeholders), resultSet -> {
+                """.formatted(placeholders), (RowCallbackHandler) resultSet -> {
             while (resultSet.next()) {
                 UUID quoteId = resultSet.getObject("quote_id", UUID.class);
                 linesByQuote.computeIfAbsent(quoteId, ignored -> new ArrayList<>()).add(
@@ -390,7 +391,7 @@ public class PricingRepository {
                                 resultSet.getBigDecimal("unit_price"),
                                 resultSet.getBigDecimal("line_amount")));
             }
-        }, quoteIds.toArray());
+        }, quoteIds.toArray(new Object[0]));
 
         return headers.stream().map(header -> new QuoteResponse(
                 header.id(), header.quoteNo(), header.versionNo(), header.status(), header.currency(),
