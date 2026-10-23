@@ -67,6 +67,11 @@ export function PricingAdminPanel({ onClose }: PricingAdminPanelProps) {
   const [busyRequestId, setBusyRequestId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [quoteResult, setQuoteResult] = useState<{
+    requestId: string;
+    message: string;
+    error: boolean;
+  } | null>(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -170,14 +175,20 @@ export function PricingAdminPanel({ onClose }: PricingAdminPanelProps) {
 
   async function createQuote(request: PricingRequestSummary) {
     setBusyRequestId(request.id);
-    setError(null);
-    setMessage(null);
+    setQuoteResult(null);
     try {
       const quote = await issueQuote(request.id);
-      setMessage(`${request.requestNo} 요청에 ${quote.quoteNo} 견적을 발행했습니다.`);
+      setQuoteResult({
+        requestId: request.id,
+        message: `${request.requestNo} 요청에 ${quote.quoteNo} 견적을 발행했습니다. 고객 화면의 견적·금액 확인에서 조회할 수 있습니다.`,
+        error: false,
+      });
       await loadData();
     } catch (requestError) {
-      setError(toMessage(requestError));
+      const message = requestError instanceof ApiError && requestError.code === "PRICE_RULE_NOT_CONFIGURED"
+        ? `${requestError.message} '${request.applianceTypeName}' 기본 설치 금액 규칙을 먼저 등록해 주세요.`
+        : toMessage(requestError);
+      setQuoteResult({ requestId: request.id, message, error: true });
     } finally {
       setBusyRequestId(null);
     }
@@ -372,14 +383,24 @@ export function PricingAdminPanel({ onClose }: PricingAdminPanelProps) {
                   <small>{request.originAddress} → {request.destinationAddress}</small>
                   <small>희망 일정 {formatDate(request.desiredStartAt)}</small>
                 </div>
-                <button
-                  className="primary-button"
-                  disabled={busyRequestId !== null}
-                  onClick={() => void createQuote(request)}
-                  type="button"
-                >
-                  {busyRequestId === request.id ? "산출 중..." : request.latestQuoteStatus ? "견적 재산출" : "견적 발행"}
-                </button>
+                <div className="pricing-request-actions">
+                  <button
+                    className="primary-button"
+                    disabled={busyRequestId !== null}
+                    onClick={() => void createQuote(request)}
+                    type="button"
+                  >
+                    {busyRequestId === request.id ? "산출 중..." : request.latestQuoteStatus ? "견적 재산출" : "견적 발행"}
+                  </button>
+                  {quoteResult?.requestId === request.id && (
+                    <p
+                      className={quoteResult.error ? "form-error" : "success-message"}
+                      role={quoteResult.error ? "alert" : "status"}
+                    >
+                      {quoteResult.message}
+                    </p>
+                  )}
+                </div>
               </article>
             ))}
           </div>

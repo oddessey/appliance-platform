@@ -3,6 +3,7 @@ com\platform\config\JwtTokenServiceTest.class
 com\platform\installation\CreateInstallationRequestValidationTest.class
 com\platform\pricing\PricingServiceTest.class
 com\platform\auth\PasswordValidatorTest.class
+com\platform\reservation\ReservationRepositorySqlTest.class
 com\platform\installation\InstallationServiceTest.class
 com\platform\technician\TechnicianProfileServiceTest.class
 com\platform\installation\InstallationApiContractTest.class

@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { acceptQuote, getCustomerQuotes } from "../api/pricing";
 import { CustomerReservations } from "./CustomerReservations";
+import { QuoteAcceptanceDialog } from "./QuoteAcceptanceDialog";
 import { ApiError } from "../api/client";
 import type { Quote } from "../types/installation";
 
@@ -11,15 +12,14 @@ interface CustomerQuotesProps {
 export function CustomerQuotes({ requestId }: CustomerQuotesProps) {
   const [open, setOpen] = useState(false);
   const [quotes, setQuotes] = useState<Quote[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [busyQuoteId, setBusyQuoteId] = useState<string | null>(null);
   const [quoteToAccept, setQuoteToAccept] = useState<Quote | null>(null);
-  const [acceptanceConfirmed, setAcceptanceConfirmed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  async function loadQuotes() {
-    setLoading(true);
+  const loadQuotes = useCallback(async (showLoading = true) => {
+    if (showLoading) setLoading(true);
     setError(null);
     try {
       const response = await getCustomerQuotes(requestId);
@@ -27,16 +27,36 @@ export function CustomerQuotes({ requestId }: CustomerQuotesProps) {
     } catch (requestError) {
       setError(toMessage(requestError));
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
-  }
+  }, [requestId]);
 
   useEffect(() => {
-    if (open) void loadQuotes();
-  }, [open, requestId]);
+    void loadQuotes();
+  }, [loadQuotes]);
+
+  useEffect(() => {
+    if (!open) return;
+    void loadQuotes(false);
+
+    function refreshQuotes() {
+      if (document.visibilityState === "visible") {
+        void loadQuotes(false);
+      }
+    }
+
+    const intervalId = window.setInterval(refreshQuotes, 15_000);
+    window.addEventListener("focus", refreshQuotes);
+    document.addEventListener("visibilitychange", refreshQuotes);
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", refreshQuotes);
+      document.removeEventListener("visibilitychange", refreshQuotes);
+    };
+  }, [open, loadQuotes]);
 
   async function accept() {
-    if (!quoteToAccept || !acceptanceConfirmed) return;
+    if (!quoteToAccept) return;
     const quote = quoteToAccept;
     setBusyQuoteId(quote.id);
     setError(null);
@@ -44,7 +64,6 @@ export function CustomerQuotes({ requestId }: CustomerQuotesProps) {
     try {
       await acceptQuote(quote.id);
       setQuoteToAccept(null);
-      setAcceptanceConfirmed(false);
       setMessage("견적 금액에 동의했습니다. 아래에서 희망 일정을 선택해 예약을 진행해 주세요.");
       await loadQuotes();
     } catch (requestError) {
@@ -59,14 +78,21 @@ export function CustomerQuotes({ requestId }: CustomerQuotesProps) {
 
   return (
     <div className="customer-quotes">
-      <button
-        aria-expanded={open}
-        className="text-button"
-        onClick={() => setOpen((current) => !current)}
-        type="button"
-      >
-        {open ? "견적 접기" : "견적·금액 확인"}
-      </button>
+      <div className="customer-quotes-heading">
+        <button
+          aria-expanded={open}
+          className="text-button"
+          onClick={() => setOpen((current) => !current)}
+          type="button"
+        >
+          {open ? "견적 접기" : "견적·금액 확인"}
+        </button>
+        {!open && latestQuote && !loading && (
+          <span className="customer-quote-summary">
+            최신 견적 {formatCurrency(latestQuote.totalAmount)} · {quoteStatusLabel(latestQuote.status)}
+          </span>
+        )}
+      </div>
       {open && (
         <div className="customer-quote-list">
           <ol aria-label="견적 확인 절차" className="quote-process">
@@ -123,7 +149,6 @@ export function CustomerQuotes({ requestId }: CustomerQuotesProps) {
                   disabled={busyQuoteId !== null || loading}
                   onClick={() => {
                     setQuoteToAccept(quote);
-                    setAcceptanceConfirmed(false);
                     setError(null);
                     setMessage(null);
                   }}
@@ -135,63 +160,13 @@ export function CustomerQuotes({ requestId }: CustomerQuotesProps) {
             </article>
           ))}
           {quoteToAccept && (
-            <div className="popup-backdrop">
-              <section
-                aria-labelledby="quote-acceptance-title"
-                aria-modal="true"
-                className="popup-card quote-acceptance-dialog"
-                role="dialog"
-              >
-                <div className="popup-heading">
-                  <h2 id="quote-acceptance-title">견적 금액 확인</h2>
-                  <button
-                    aria-label="견적 확인 닫기"
-                    className="text-button"
-                    disabled={busyQuoteId !== null}
-                    onClick={() => setQuoteToAccept(null)}
-                    type="button"
-                  >
-                    닫기
-                  </button>
-                </div>
-                <p>{quoteToAccept.quoteNo} · {quoteToAccept.versionNo}차 견적의 최종 금액입니다.</p>
-                <div className="quote-acceptance-total">
-                  <span>동의할 최종 견적 금액</span>
-                  <strong>{formatCurrency(quoteToAccept.totalAmount)}</strong>
-                </div>
-                <p className="quote-acceptance-note">
-                  견적 동의 후 예약 일정 선택 단계로 이동합니다. 이 단계에서 예약이 자동 확정되거나 결제가 진행되지는 않습니다.
-                </p>
-                <label className="quote-acceptance-consent">
-                  <input
-                    checked={acceptanceConfirmed}
-                    disabled={busyQuoteId !== null}
-                    onChange={(event) => setAcceptanceConfirmed(event.target.checked)}
-                    type="checkbox"
-                  />
-                  위 견적의 항목별 내역과 최종 금액을 확인했으며, 해당 금액에 동의합니다.
-                </label>
-                {error && <p className="inline-error" role="alert">{error}</p>}
-                <div className="quote-acceptance-actions">
-                  <button
-                    className="secondary-button"
-                    disabled={busyQuoteId !== null}
-                    onClick={() => setQuoteToAccept(null)}
-                    type="button"
-                  >
-                    취소
-                  </button>
-                  <button
-                    className="primary-button"
-                    disabled={!acceptanceConfirmed || busyQuoteId !== null}
-                    onClick={() => void accept()}
-                    type="button"
-                  >
-                    {busyQuoteId === quoteToAccept.id ? "처리 중..." : "견적 금액에 동의"}
-                  </button>
-                </div>
-              </section>
-            </div>
+            <QuoteAcceptanceDialog
+              busy={busyQuoteId !== null}
+              error={error}
+              onCancel={() => setQuoteToAccept(null)}
+              onConfirm={() => void accept()}
+              quote={quoteToAccept}
+            />
           )}
           {acceptedQuote && (
             <CustomerReservations

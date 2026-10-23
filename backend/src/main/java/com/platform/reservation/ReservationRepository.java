@@ -147,7 +147,8 @@ public class ReservationRepository {
 
     public Optional<ReservationResponse> findCustomerReservation(UUID reservationId, UUID customerId) {
         return jdbcTemplate.query("""
-                SELECT """ + RESERVATION_COLUMNS + """
+                SELECT
+                """ + RESERVATION_COLUMNS + """
                 FROM reservation r
                 JOIN move_request mr ON mr.id = r.move_request_id
                 JOIN quote q ON q.id = r.quote_id
@@ -173,7 +174,8 @@ public class ReservationRepository {
                 """, Long.class, customerId, requestId, requestId);
         return new ReservationPageResponse(page, size, total == null ? 0 : total,
                 jdbcTemplate.query("""
-                        SELECT """ + RESERVATION_COLUMNS + """
+                        SELECT
+                        """ + RESERVATION_COLUMNS + """
                         FROM reservation r
                         JOIN move_request mr ON mr.id = r.move_request_id
                         JOIN quote q ON q.id = r.quote_id
@@ -206,7 +208,8 @@ public class ReservationRepository {
                 """, Long.class, status, status, assignmentStatus, assignmentStatus);
         return new ReservationPageResponse(page, size, total == null ? 0 : total,
                 jdbcTemplate.query("""
-                        SELECT """ + RESERVATION_COLUMNS + """
+                        SELECT
+                        """ + RESERVATION_COLUMNS + """
                         FROM reservation r
                         JOIN move_request mr ON mr.id = r.move_request_id
                         JOIN quote q ON q.id = r.quote_id
@@ -382,7 +385,8 @@ public class ReservationRepository {
 
     private Optional<ReservationResponse> findOne(UUID reservationId, UUID customerId) {
         return jdbcTemplate.query("""
-                SELECT """ + RESERVATION_COLUMNS + """
+                SELECT
+                """ + RESERVATION_COLUMNS + """
                 FROM reservation r
                 JOIN move_request mr ON mr.id = r.move_request_id
                 JOIN quote q ON q.id = r.quote_id

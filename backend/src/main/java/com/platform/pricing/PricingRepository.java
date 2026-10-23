@@ -2,10 +2,11 @@ package com.platform.pricing;
 
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.RowCallbackHandler;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -127,7 +128,9 @@ public class PricingRepository {
         jdbcTemplate.update("""
                 INSERT INTO audit_log (id, actor_user_id, action, entity_type, entity_id, after_summary)
                 VALUES (?, ?, ?, 'QUOTE', ?, jsonb_build_object(
-                    'quoteNo', CAST(? AS text), 'version', ?, 'totalAmount', ?
+                    'quoteNo', CAST(? AS text),
+                    'version', CAST(? AS integer),
+                    'totalAmount', CAST(? AS numeric)
                 ))
                 """, UUID.randomUUID(), actorId, action, quoteId, quoteNo, version, total);
     }
@@ -374,24 +377,7 @@ public class PricingRepository {
             return List.of();
         }
         List<UUID> quoteIds = headers.stream().map(QuoteHeader::id).toList();
-        String placeholders = String.join(",", java.util.Collections.nCopies(quoteIds.size(), "?"));
-        Map<UUID, List<QuoteLineResponse>> linesByQuote = new HashMap<>();
-        jdbcTemplate.query("""
-                SELECT quote_id, line_code, description, quantity, unit_price, line_amount
-                FROM quote_line
-                WHERE quote_id IN (%s)
-                ORDER BY quote_id, id
-                """.formatted(placeholders), (RowCallbackHandler) resultSet -> {
-            while (resultSet.next()) {
-                UUID quoteId = resultSet.getObject("quote_id", UUID.class);
-                linesByQuote.computeIfAbsent(quoteId, ignored -> new ArrayList<>()).add(
-                        new QuoteLineResponse(resultSet.getString("line_code"),
-                                resultSet.getString("description"),
-                                resultSet.getBigDecimal("quantity"),
-                                resultSet.getBigDecimal("unit_price"),
-                                resultSet.getBigDecimal("line_amount")));
-            }
-        }, quoteIds.toArray(new Object[0]));
+        Map<UUID, List<QuoteLineResponse>> linesByQuote = findQuoteLines(quoteIds);
 
         return headers.stream().map(header -> new QuoteResponse(
                 header.id(), header.quoteNo(), header.versionNo(), header.status(), header.currency(),
@@ -432,19 +418,40 @@ public class PricingRepository {
                 header.issuedAt(), header.expiresAt(), findQuoteLines(quoteId)));
     }
 
+    private Map<UUID, List<QuoteLineResponse>> findQuoteLines(List<UUID> quoteIds) {
+        String placeholders = String.join(",", java.util.Collections.nCopies(quoteIds.size(), "?"));
+        return jdbcTemplate.query("""
+                SELECT quote_id, line_code, description, quantity, unit_price, line_amount
+                FROM quote_line
+                WHERE quote_id IN (%s)
+                ORDER BY quote_id, id
+                """.formatted(placeholders), resultSet -> {
+            Map<UUID, List<QuoteLineResponse>> linesByQuote = new HashMap<>();
+            while (resultSet.next()) {
+                UUID quoteId = resultSet.getObject("quote_id", UUID.class);
+                linesByQuote.computeIfAbsent(quoteId, ignored -> new ArrayList<>()).add(toQuoteLine(resultSet));
+            }
+            return linesByQuote;
+        }, quoteIds.toArray(new Object[0]));
+    }
+
     private List<QuoteLineResponse> findQuoteLines(UUID quoteId) {
         return jdbcTemplate.query("""
                 SELECT line_code, description, quantity, unit_price, line_amount
                 FROM quote_line
                 WHERE quote_id = ?
                 ORDER BY id
-                """, (resultSet, rowNumber) -> new QuoteLineResponse(
+                """, (resultSet, rowNumber) -> toQuoteLine(resultSet), quoteId);
+    }
+
+    private QuoteLineResponse toQuoteLine(ResultSet resultSet) throws SQLException {
+        return new QuoteLineResponse(
                 resultSet.getString("line_code"),
                 resultSet.getString("description"),
                 resultSet.getBigDecimal("quantity"),
                 resultSet.getBigDecimal("unit_price"),
                 resultSet.getBigDecimal("line_amount")
-        ), quoteId);
+        );
     }
 
     public Optional<QuoteAcceptanceState> lockQuoteForAcceptance(UUID quoteId, UUID customerId) {

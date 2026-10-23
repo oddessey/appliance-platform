@@ -3,6 +3,7 @@ import type { FormEvent } from "react";
 import { createInstallation, getApplianceTypes } from "../api/installations";
 import { ApiError } from "../api/client";
 import { AddressSearchInput } from "../components/AddressSearchInput";
+import { CustomerQuoteLookup } from "../components/CustomerQuoteLookup";
 import { DesiredDateTimeInput } from "../components/DesiredDateTimeInput";
 import { InstallationHistory } from "../components/InstallationHistory";
 import type { ApplianceType, InstallationResponse } from "../types/installation";
@@ -189,6 +190,7 @@ export function CustomerScreen({ showHistory, onViewHistory, onViewHome }: Custo
       </div>
 
       <CustomerInformationPanel />
+      <CustomerQuoteLookup refreshKey={formGeneration} onViewHistory={onViewHistory} />
 
       {showAdditionalPrompt && success && (
         <div className="popup-backdrop">

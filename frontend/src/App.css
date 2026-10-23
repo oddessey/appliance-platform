@@ -1532,6 +1532,115 @@
   color: #267354;
 }
 
+.customer-quote-lookup {
+  grid-column: 1 / -1;
+  padding: 30px 34px;
+  border: 1px solid #e0e9dd;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 18px 45px #315c3710;
+}
+
+.customer-quote-lookup-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid #edf1eb;
+}
+
+.customer-quote-lookup-heading h2 {
+  margin: 8px 0 7px;
+  color: #20392f;
+  font-size: 25px;
+  letter-spacing: -0.045em;
+}
+
+.customer-quote-lookup-heading p {
+  margin: 0;
+  color: #858d87;
+  font-size: 13px;
+}
+
+.customer-quote-lookup-heading .step-label {
+  color: #488364;
+}
+
+.customer-quote-lookup-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.customer-quote-lookup-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.customer-quote-lookup-card {
+  padding: 17px 18px;
+  border: 1px solid #e7eae5;
+  border-radius: 12px;
+  background: #fbfcf9;
+}
+
+.customer-quote-lookup-card-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.customer-quote-lookup-card-heading > div:first-child {
+  display: grid;
+  gap: 5px;
+}
+
+.customer-quote-lookup-card-heading strong {
+  color: #20392f;
+  font-size: 13px;
+}
+
+.customer-quote-lookup-card-heading small {
+  color: #7e8982;
+  font-size: 11px;
+}
+
+.customer-quote-lookup-amount {
+  display: grid;
+  justify-items: end;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.customer-quote-lookup-amount strong {
+  color: #245c49;
+  font-size: 18px;
+}
+
+.customer-quote-lookup-waiting {
+  padding: 6px 10px;
+  border: 1px solid #e2e6df;
+  border-radius: 999px;
+  background: #f4f6f1;
+  color: #7e8982;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.customer-quote-lookup-card .quote-totals {
+  margin-top: 12px;
+}
+
+.customer-quote-lookup-note {
+  margin: 16px 0 0;
+  color: #89928b;
+  font-size: 11px;
+}
+
 .screen-content--technician {
   grid-template-columns: minmax(0, 1fr) 270px;
   gap: 20px;
@@ -2212,6 +2321,20 @@
   border-top: 1px solid #eaebe7;
 }
 
+.customer-quotes-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.customer-quote-summary {
+  color: #245c49;
+  font-size: 11px;
+  font-weight: 700;
+}
+
 .customer-quote-list,
 .price-rule-list,
 .pricing-request-list {
@@ -2259,6 +2382,17 @@
   font-size: 11px;
 }
 
+.pricing-request-actions {
+  justify-items: end;
+  min-width: 170px;
+}
+
+.pricing-request-actions .success-message,
+.pricing-request-actions .form-error {
+  margin: 0;
+  text-align: right;
+}
+
 .customer-quote-heading > strong {
   white-space: nowrap;
 }
@@ -2295,7 +2429,8 @@
   font-weight: 750;
 }
 
-.customer-quote-card > .primary-button {
+.customer-quote-card > .primary-button,
+.customer-quote-lookup-card > .primary-button {
   width: 100%;
   margin-top: 14px;
 }
@@ -2527,6 +2662,21 @@
 
   .pricing-request-card > .primary-button {
     width: 100%;
+  }
+
+  .customer-quote-lookup {
+    padding: 24px 22px;
+  }
+
+  .customer-quote-lookup-heading,
+  .customer-quote-lookup-card-heading {
+    flex-direction: column;
+  }
+
+  .customer-quote-lookup-actions,
+  .customer-quote-lookup-amount {
+    justify-content: flex-start;
+    justify-items: start;
   }
 }
 
