@@ -26,6 +26,7 @@ export interface Reservation {
   destinationAddress: string;
   quoteTotalAmount: number;
   technicianAssignmentStatus: "PENDING" | "ACCEPTED" | "REJECTED" | "ON_THE_WAY" | "WORK_STARTED" | "WORK_COMPLETED" | "CANCELLED" | null;
+  technicianAssignmentId: string | null;
   technicianName: string | null;
 }
 

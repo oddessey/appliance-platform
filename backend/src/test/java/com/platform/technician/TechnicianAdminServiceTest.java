@@ -98,6 +98,60 @@ class TechnicianAdminServiceTest {
     }
 
     @Test
+    void manualAssignmentIsRejectedWhenAnActiveAssignmentExists() {
+        UUID reservationId = UUID.randomUUID();
+        UUID profileId = UUID.randomUUID();
+        UUID actorId = UUID.randomUUID();
+        when(repository.findReservationStatusForUpdate(reservationId)).thenReturn(Optional.of("CONFIRMED"));
+        when(repository.hasNonRejectedAssignment(reservationId)).thenReturn(true);
+
+        assertThrows(InvalidTechnicianAssignmentException.class,
+                () -> service.assign(reservationId, profileId, actorId));
+        verify(repository, never()).findCandidates(reservationId);
+        verify(repository, never()).createAssignment(
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void adminCancelsAnOpenAssignment() {
+        UUID assignmentId = UUID.randomUUID();
+        UUID reservationId = UUID.randomUUID();
+        UUID actorId = UUID.randomUUID();
+        when(repository.findAssignmentForUpdate(assignmentId)).thenReturn(Optional.of(
+                new TechnicianAdminRepository.AssignmentState(reservationId, "ACCEPTED")));
+
+        service.cancelAssignment(assignmentId, actorId);
+
+        verify(repository).cancelAssignment(assignmentId, reservationId, "ACCEPTED", actorId);
+    }
+
+    @Test
+    void adminCannotCancelAnAssignmentThatHasStartedWork() {
+        UUID assignmentId = UUID.randomUUID();
+        when(repository.findAssignmentForUpdate(assignmentId)).thenReturn(Optional.of(
+                new TechnicianAdminRepository.AssignmentState(UUID.randomUUID(), "WORK_STARTED")));
+
+        assertThrows(InvalidAssignmentTransitionException.class,
+                () -> service.cancelAssignment(assignmentId, UUID.randomUUID()));
+        verify(repository, never()).cancelAssignment(
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
+    void adminCannotCancelAMissingAssignment() {
+        UUID assignmentId = UUID.randomUUID();
+        when(repository.findAssignmentForUpdate(assignmentId)).thenReturn(Optional.empty());
+
+        assertThrows(AssignmentNotFoundException.class,
+                () -> service.cancelAssignment(assignmentId, UUID.randomUUID()));
+        verify(repository, never()).cancelAssignment(
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any(),
+                org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+    }
+
+    @Test
     void rejectsReservationsThatAreNotConfirmed() {
         UUID reservationId = UUID.randomUUID();
         when(repository.findReservationStatus(reservationId)).thenReturn(Optional.of("PENDING"));

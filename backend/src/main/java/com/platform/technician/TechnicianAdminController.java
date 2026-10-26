@@ -79,6 +79,15 @@ public class TechnicianAdminController {
         return service.assign(id, request.technicianProfileId(), accountId(jwt));
     }
 
+    @PostMapping("/api/v1/admin/assignments/{assignmentId}/cancel")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void cancelAssignment(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID assignmentId
+    ) {
+        service.cancelAssignment(assignmentId, accountId(jwt));
+    }
+
     @GetMapping("/api/v1/admin/assignments/{assignmentId}/evidence/{evidenceId}")
     public ResponseEntity<Resource> downloadEvidence(
             @PathVariable UUID assignmentId,

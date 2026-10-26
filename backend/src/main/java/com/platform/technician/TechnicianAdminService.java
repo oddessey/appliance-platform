@@ -4,12 +4,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
 public class TechnicianAdminService {
 
     private static final int MAX_PAGE_SIZE = 100;
+    private static final Set<String> CANCELLABLE_ASSIGNMENT_STATUSES =
+            Set.of("PENDING", "ACCEPTED", "ON_THE_WAY");
 
     private final TechnicianAdminRepository repository;
 
@@ -51,6 +54,9 @@ public class TechnicianAdminService {
     @Transactional
     public TechnicianAssignmentResponse assign(UUID reservationId, UUID profileId, UUID actorUserId) {
         requireConfirmedReservation(reservationId, true);
+        if (repository.hasNonRejectedAssignment(reservationId)) {
+            throw new InvalidTechnicianAssignmentException();
+        }
         boolean eligible = repository.findCandidates(reservationId).stream()
                 .anyMatch(candidate -> candidate.technicianProfileId().equals(profileId));
         if (!eligible) {
@@ -58,6 +64,16 @@ public class TechnicianAdminService {
         }
         UUID assignmentId = repository.createAssignment(reservationId, profileId, actorUserId, "MANUAL");
         return repository.findAssignment(assignmentId).orElseThrow(InvalidTechnicianAssignmentException::new);
+    }
+
+    @Transactional
+    public void cancelAssignment(UUID assignmentId, UUID actorUserId) {
+        TechnicianAdminRepository.AssignmentState assignment = repository.findAssignmentForUpdate(assignmentId)
+                .orElseThrow(AssignmentNotFoundException::new);
+        if (!CANCELLABLE_ASSIGNMENT_STATUSES.contains(assignment.status())) {
+            throw new InvalidAssignmentTransitionException();
+        }
+        repository.cancelAssignment(assignmentId, assignment.reservationId(), assignment.status(), actorUserId);
     }
 
     @Transactional(readOnly = true)

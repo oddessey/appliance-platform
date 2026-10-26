@@ -135,6 +135,7 @@
 | 관리자 | PATCH | `/admin/technicians/{id}` | 관리자 | 기사 승인·활성 상태 변경 |
 | 관리자 | GET | `/admin/reservations/{id}/technician-candidates` | 관리자 | 예약 기사 후보 조회 |
 | 관리자 | POST | `/admin/reservations/{id}/assignments` | 관리자 | 후보 기사 배정 |
+| 관리자 | POST | `/admin/assignments/{assignmentId}/cancel` | 관리자 | 진행 중 기사 배정 취소 |
 | 관리자 | GET | `/admin/reservations/pending-technician-assignment` | 관리자 | 기사 미배정 확정 예약 조회 |
 | 관리자 | GET | `/admin/assignments/{assignmentId}/evidence` | 관리자 | 배정 증빙 목록 |
 | 관리자 | GET | `/admin/assignments/{assignmentId}/evidence/{evidenceId}` | 관리자 | 증빙 내려받기 |
@@ -143,7 +144,6 @@
 | 관리자 | CRUD | `/admin/price-rules` | 관리자 | 가격 규칙 관리 |
 | 관리자 | GET/PATCH | `/admin/users/{id}` | 관리자 | 사용자 관리 |
 | 관리자 | CRUD | `/admin/technicians` | 관리자 | 기사 관리 |
-| 관리자 | GET/PATCH | `/admin/reservations/{id}` | 관리자 | 예약 관리 |
 | 관리자 | GET | `/admin/payments` | 관리자 | 결제 이력 조회 |
 | 관리자 | GET | `/admin/ai-analyses?status=NEEDS_REVIEW` | 관리자 | 분석 검토 대상 |
 
@@ -527,11 +527,13 @@ AI 결과는 확정 견적이 아니다. 낮은 신뢰도·불충분한 정보�
 
 서비스 지역은 주소의 시·도와 시·군·구를 결합한 값(예: `서울특별시 강남구`)이며 출발·도착 지역 모두를 지원해야 한다. 주간 작업 가능 시간은 한국 표준시 기준 ISO 요일(월요일 1~일요일 7)과 현지 시각으로 표현한다.
 
-기본 업무 흐름은 관리자 수동 배정이다. 관리자는 설치 요청·AI 검토 목록에서 예약이 `CONFIRMED`인 요청의 기사 후보를 조회하고, 적격 후보를 선택해 배정한다. 기사가 배정을 수락하면 상태가 `ACCEPTED`가 되며 해당 예약은 예약 관리 화면에서 `assignmentStatus=ACCEPTED`로 조회할 수 있다. 예약 관리 응답에는 최신 `technicianAssignmentStatus`와 `technicianName`이 포함된다. 기사가 거절한 배정은 요청·AI 검토 화면에서 다시 후보를 조회해 재배정할 수 있다.
+기본 업무 흐름은 관리자 수동 배정이다. 관리자는 설치 요청·AI 검토 목록에서 예약이 `CONFIRMED`인 요청의 기사 후보를 조회하고, 적격 후보를 선택해 배정한다. 기사가 배정을 수락하면 상태가 `ACCEPTED`가 되며 해당 예약은 예약 관리 화면에서 `assignmentStatus=ACCEPTED`로 조회할 수 있다. 예약 관리 응답에는 최신 `technicianAssignmentId`, `technicianAssignmentStatus`, `technicianName`이 포함된다. 기사가 거절하거나 관리자가 배정을 취소한 배정은 요청·AI 검토, 기사·배정 관리, 예약 관리 화면에서 다시 후보를 조회해 재배정할 수 있다.
 
 자동 배정 스케줄러는 `technician.assignment.automatic-enabled=true`로 명시적으로 활성화한 경우에만 30초 주기로 실행된다. 자동 배정을 사용하지 않는 기본 설정에서는 요청 접수나 예약 확정만으로 기사가 자동 선택되지 않는다. 활성화한 경우에도 적격 후보가 없으면 배정하지 않고 다음 주기에 다시 확인한다. 예약 행 잠금과 기존 활성 배정 검사를 통해 자동·수동 처리 경합과 중복 활성 배정을 방지한다.
 
-요청·AI 검토 화면은 `GET /api/v1/admin/reservations/pending-technician-assignment?page=0&size=20`으로 확정 예약 중 미배정 또는 거절된 예약을 별도 목록으로 보여준다. 각 예약에서 `GET /api/v1/admin/reservations/{id}/technician-candidates`로 적격 후보를 조회하고, 선택한 기사에 `POST /api/v1/admin/reservations/{id}/assignments`를 호출해 배정한다. 설치 요청 목록의 예약·최신 배정 정보에서도 같은 후보 조회·배정 기능을 제공한다. `GET /api/v1/admin/reservations?page=0&size=20&assignmentStatus=ACCEPTED`는 기사가 수락한 예약만 조회한다.
+요청·AI 검토 화면은 `GET /api/v1/admin/reservations/pending-technician-assignment?page=0&size=20`으로 확정 예약 중 미배정·거절·배정 취소된 예약을 별도 목록으로 보여준다. 각 예약에서 `GET /api/v1/admin/reservations/{id}/technician-candidates`로 적격 후보를 조회하고, 선택한 기사에 `POST /api/v1/admin/reservations/{id}/assignments`를 호출해 배정한다. 설치 요청 목록의 예약·최신 배정 정보에서도 같은 후보 조회·배정 기능을 제공하며, 기사·배정 관리와 예약 관리 화면에서도 동일한 후보 조회·배정·재배정을 지원한다. `GET /api/v1/admin/reservations?page=0&size=20&assignmentStatus=ACCEPTED`는 기사가 수락한 예약만 조회한다.
+
+관리자는 `POST /api/v1/admin/assignments/{assignmentId}/cancel`로 수락 대기(`PENDING`), 수락(`ACCEPTED`), 이동 중(`ON_THE_WAY`) 상태의 배정을 취소할 수 있다. 취소된 배정은 `CANCELLED`로 종료되고 작업 이력과 감사 로그가 남으며, 예약은 `CONFIRMED` 상태로 유지되어 재배정 대기 목록에 다시 나타난다. 작업이 시작·완료된 배정이나 이미 종료된 배정은 `409 Conflict`, 존재하지 않는 배정은 `404 Not Found`를 반환한다. 응답 본문은 없다.
 
 후보는 진행 중 작업 수가 적은 순으로 정렬하고 최대 100명까지 반환한다. 자격 유형 및 예약별 필수 자격 코드가 정의되지 않아 프로필에 자격 정보가 등록되어 있고 관리자가 승인한 것을 기본 자격 확인으로 사용한다. 수동 배정도 적격 후보만 허용한다. 확정되지 않은 예약, 부적격 기사, 동일 예약의 중복 활성 배정은 `409 Conflict`를 반환한다. 적격 후보가 없으면 빈 후보 목록을 반환하고 임의 기사를 선택하지 않는다. 기사 목록은 `approvalStatus`, `page`, `size`로 검색하며 PATCH 본문은 `{"approvalStatus":"APPROVED","active":true}` 형식이다.
 

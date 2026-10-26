@@ -8,6 +8,7 @@ com\platform\installation\InstallationServiceTest.class
 com\platform\technician\TechnicianProfileServiceTest.class
 com\platform\installation\InstallationApiContractTest.class
 com\platform\auth\AuthServiceTest.class
+com\platform\installation\AdminInstallationServiceTest.class
 com\platform\member\MemberServiceTest.class
 com\platform\technician\TechnicianEvidenceServiceTest.class
 com\platform\technician\TechnicianAdminServiceTest.class

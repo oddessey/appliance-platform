@@ -5,7 +5,10 @@ import {
   adminRescheduleReservation,
   getAdminReservations,
 } from "../api/reservations";
+import { cancelTechnicianAssignment } from "../api/installations";
 import { ApiError } from "../api/client";
+import { AssignmentCancelDialog } from "./AssignmentCancelDialog";
+import { TechnicianAssignmentDialog } from "./TechnicianAssignmentDialog";
 import type { Reservation, ReservationStatus } from "../types/reservation";
 import type { TechnicianAssignmentStatus } from "../types/installation";
 
@@ -35,6 +38,10 @@ export function ReservationAdminPanel({ onReviewAssignments }: ReservationAdminP
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [assignTarget, setAssignTarget] = useState<Reservation | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<Reservation | null>(null);
+  const [cancelBusy, setCancelBusy] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
   const loadReservations = useCallback(async () => {
     setLoading(true);
@@ -118,13 +125,37 @@ export function ReservationAdminPanel({ onReviewAssignments }: ReservationAdminP
     }
   }
 
+  async function handleAssigned(reservation: Reservation, technicianName: string) {
+    setAssignTarget(null);
+    setError(null);
+    setMessage(`${reservation.reservationNo} 예약을 ${technicianName} 기사에게 배정했습니다. 기사 수락 후 상태가 갱신됩니다.`);
+    await loadReservations();
+  }
+
+  async function confirmCancelAssignment() {
+    const target = cancelTarget;
+    if (!target || !target.technicianAssignmentId || cancelBusy) return;
+    setCancelBusy(true);
+    setCancelError(null);
+    try {
+      await cancelTechnicianAssignment(target.technicianAssignmentId);
+      setCancelTarget(null);
+      setMessage(`${target.reservationNo} 기사 배정을 취소했습니다. 재배정할 수 있습니다.`);
+      await loadReservations();
+    } catch (requestError) {
+      setCancelError(toMessage(requestError));
+    } finally {
+      setCancelBusy(false);
+    }
+  }
+
   return (
     <section aria-labelledby="reservation-admin-title" className="reservation-admin-panel">
       <div className="technician-profile-heading">
         <div>
           <span className="step-label">RESERVATION MANAGEMENT</span>
           <h2 id="reservation-admin-title">예약 관리</h2>
-          <p>예약 일정을 관리하고 기사 배정 상태 및 담당 기사를 확인합니다.</p>
+          <p>예약 일정을 관리하고 기사 배정·재배정·배정 취소를 처리합니다.</p>
         </div>
         <div className="technician-heading-actions">
           <button className="text-button" disabled={loading} onClick={() => void loadReservations()} type="button">
@@ -153,7 +184,11 @@ export function ReservationAdminPanel({ onReviewAssignments }: ReservationAdminP
           { label: "모든 배정 상태", value: undefined },
           { label: "기사 수락 대기", value: "PENDING" as const },
           { label: "기사 수락 완료", value: "ACCEPTED" as const },
+          { label: "이동 중", value: "ON_THE_WAY" as const },
+          { label: "작업 중", value: "WORK_STARTED" as const },
+          { label: "작업 완료", value: "WORK_COMPLETED" as const },
           { label: "기사 거절", value: "REJECTED" as const },
+          { label: "배정 취소", value: "CANCELLED" as const },
         ]).map((filter) => (
           <button
             aria-selected={assignmentStatus === filter.value}
@@ -182,7 +217,10 @@ export function ReservationAdminPanel({ onReviewAssignments }: ReservationAdminP
       ) : (
         <>
           <div className="reservation-admin-list">
-            {reservations.map((reservation) => (
+            {reservations.map((reservation) => {
+              const canAssign = canAssignTechnician(reservation);
+              const canCancelAssignment = canCancelTechnicianAssignment(reservation);
+              return (
               <article className="reservation-admin-card" key={reservation.id}>
                 <div className="reservation-admin-heading">
                   <div>
@@ -210,14 +248,39 @@ export function ReservationAdminPanel({ onReviewAssignments }: ReservationAdminP
                   </div>
                   {reservation.customerMemo && <div><dt>고객 메모</dt><dd>{reservation.customerMemo}</dd></div>}
                 </dl>
-                {reservation.technicianAssignmentStatus === "REJECTED" && (
-                  <div className="reservation-reassignment">
-                    <p className="empty-state">요청·AI 검토 화면에서 적격 후보를 다시 조회해 재배정할 수 있습니다.</p>
-                    <button className="secondary-button" onClick={onReviewAssignments} type="button">
-                      요청·AI 검토에서 재배정
-                    </button>
+                {canAssign || canCancelAssignment ? (
+                  <div className="reservation-actions reservation-assignment-actions">
+                    {canAssign && (
+                      <button
+                        className="secondary-button"
+                        disabled={busyId !== null}
+                        onClick={() => {
+                          setError(null);
+                          setMessage(null);
+                          setAssignTarget(reservation);
+                        }}
+                        type="button"
+                      >
+                        {reservation.technicianAssignmentStatus ? "다른 기사 재배정" : "기사 배정"}
+                      </button>
+                    )}
+                    {canCancelAssignment && (
+                      <button
+                        className="text-button reservation-cancel"
+                        disabled={busyId !== null}
+                        onClick={() => {
+                          setError(null);
+                          setMessage(null);
+                          setCancelError(null);
+                          setCancelTarget(reservation);
+                        }}
+                        type="button"
+                      >
+                        배정 취소
+                      </button>
+                    )}
                   </div>
-                )}
+                ) : null}
                 {editingId === reservation.id ? (
                   <form className="reservation-form" onSubmit={(event) => void saveSchedule(event, reservation)}>
                     <label>
@@ -246,7 +309,8 @@ export function ReservationAdminPanel({ onReviewAssignments }: ReservationAdminP
                   </div>
                 ) : null}
               </article>
-            ))}
+              );
+            })}
           </div>
           <div className="admin-pagination">
             <button
@@ -269,8 +333,55 @@ export function ReservationAdminPanel({ onReviewAssignments }: ReservationAdminP
           </div>
         </>
       )}
+
+      {assignTarget && (
+        <TechnicianAssignmentDialog
+          addressesLabel={`${assignTarget.originAddress} → ${assignTarget.destinationAddress}`}
+          onAssigned={(technicianName) => handleAssigned(assignTarget, technicianName)}
+          onClose={() => setAssignTarget(null)}
+          reassign={assignTarget.technicianAssignmentStatus === "REJECTED"
+            || assignTarget.technicianAssignmentStatus === "CANCELLED"}
+          reservationId={assignTarget.id}
+          reservationNo={assignTarget.reservationNo}
+          scheduleLabel={`${formatDateTime(assignTarget.scheduledStartAt)} ~ ${formatDateTime(assignTarget.scheduledEndAt)}`}
+        />
+      )}
+      {cancelTarget && (
+        <AssignmentCancelDialog
+          busy={cancelBusy}
+          error={cancelError}
+          onClose={() => {
+            if (!cancelBusy) {
+              setCancelTarget(null);
+              setCancelError(null);
+            }
+          }}
+          onConfirm={() => void confirmCancelAssignment()}
+          reservationNo={cancelTarget.reservationNo}
+          statusLabel={cancelTarget.technicianAssignmentStatus
+            ? assignmentStatusLabel(cancelTarget.technicianAssignmentStatus)
+            : ""}
+          technicianName={cancelTarget.technicianName}
+        />
+      )}
     </section>
   );
+}
+
+const CANCELLABLE_ASSIGNMENT_STATUSES: TechnicianAssignmentStatus[] = ["PENDING", "ACCEPTED", "ON_THE_WAY"];
+
+function canAssignTechnician(reservation: Reservation): boolean {
+  return reservation.status === "CONFIRMED"
+    && (!reservation.technicianAssignmentStatus
+      || reservation.technicianAssignmentStatus === "REJECTED"
+      || reservation.technicianAssignmentStatus === "CANCELLED");
+}
+
+function canCancelTechnicianAssignment(reservation: Reservation): boolean {
+  return reservation.status === "CONFIRMED"
+    && reservation.technicianAssignmentId !== null
+    && reservation.technicianAssignmentStatus !== null
+    && CANCELLABLE_ASSIGNMENT_STATUSES.includes(reservation.technicianAssignmentStatus);
 }
 
 function toLocalDateTime(value: string): string {

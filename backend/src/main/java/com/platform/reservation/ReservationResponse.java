@@ -24,6 +24,7 @@ public record ReservationResponse(
         String destinationAddress,
         BigDecimal quoteTotalAmount,
         String technicianAssignmentStatus,
+        UUID technicianAssignmentId,
         String technicianName
 ) {
 }

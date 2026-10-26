@@ -667,16 +667,6 @@
   font-size: 16px;
 }
 
-.technician-assignment-flow {
-  display: grid;
-  gap: 8px;
-  margin: 0;
-  padding-left: 20px;
-  color: #536157;
-  font-size: 12px;
-  line-height: 1.6;
-}
-
 .admin-request-assignment {
   display: grid;
   gap: 10px;
@@ -2746,18 +2736,8 @@
   padding: 0 13px;
 }
 
-.reservation-reassignment {
-  display: grid;
-  gap: 8px;
-  margin-bottom: 14px;
-  padding: 12px;
-  border: 1px solid #f0dfcc;
-  border-radius: 8px;
-  background: #fffaf4;
-}
-
-.reservation-reassignment .secondary-button {
-  justify-self: start;
+.reservation-assignment-actions {
+  margin-bottom: 10px;
 }
 
 .reservation-cancel {
@@ -2859,4 +2839,111 @@
   .reservation-summary {
     align-items: flex-start;
   }
+}
+
+.assignment-dialog,
+.assignment-cancel-dialog {
+  display: grid;
+  gap: 12px;
+  width: min(100%, 560px);
+}
+
+.assignment-dialog-summary {
+  display: grid;
+  gap: 4px;
+  padding: 14px;
+  border-radius: 10px;
+  background: #f3f7f2;
+}
+
+.assignment-dialog-summary strong {
+  color: #20392f;
+  font-size: 15px;
+}
+
+.assignment-dialog-summary span {
+  color: #5d6a62;
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.assignment-dialog .candidate-eligibility-note {
+  margin: 0;
+}
+
+.assignment-dialog .technician-candidate-option {
+  margin-left: 0;
+}
+
+.assignment-dialog-candidate {
+  display: flex;
+  flex-basis: 100%;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.assignment-dialog-candidate input {
+  flex: 0 0 auto;
+  accent-color: #245c49;
+}
+
+.assignment-dialog-candidate span {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.assignment-dialog-candidate strong {
+  color: #293a31;
+  font-size: 13px;
+}
+
+.assignment-dialog-candidate small {
+  color: #78837c;
+  font-size: 11px;
+}
+
+.assignment-cancel-dialog .quote-acceptance-note {
+  margin: 0;
+  color: #7e8982;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.technician-assignment-manage {
+  display: grid;
+  gap: 12px;
+  margin-top: 30px;
+  padding: 18px;
+  border: 1px solid #dbe7de;
+  border-radius: 12px;
+  background: #f5f9f5;
+}
+
+.technician-assignment-manage .admin-module-heading {
+  margin-bottom: 0;
+}
+
+.technician-assignment-manage .admin-module-heading h3 {
+  margin: 7px 0;
+  color: #20392f;
+  font-size: 18px;
+}
+
+.technician-assignment-manage .admin-module-heading p {
+  color: #5d6a62;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.technician-assignment-manage .empty-state,
+.technician-assignment-manage .history-loading {
+  margin: 0;
+  padding: 14px;
+  border: 1px dashed #dbe7de;
+  border-radius: 10px;
+  background: #fff;
+  text-align: center;
 }

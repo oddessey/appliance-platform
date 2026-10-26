@@ -215,7 +215,7 @@ class ReservationServiceTest {
         return new ReservationResponse(id, "RSV-20261020-ABCDEF01", requestId, "REQ-TEST",
                 quoteId, "QT-TEST", status, startAt, startAt.plusHours(2), null, startAt,
                 null, startAt, "Customer", "010-0000-0000", "Origin", "Destination",
-                new BigDecimal("110000.00"), null, null);
+                new BigDecimal("110000.00"), null, null, null);
     }
 
     private String hash(CreateReservationRequest request) throws Exception {

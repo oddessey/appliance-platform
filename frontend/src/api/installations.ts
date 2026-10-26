@@ -158,3 +158,9 @@ export function assignTechnician(
     body: JSON.stringify({ technicianProfileId }),
   });
 }
+
+export function cancelTechnicianAssignment(assignmentId: string): Promise<void> {
+  return apiRequest<void>(`/admin/assignments/${encodeURIComponent(assignmentId)}/cancel`, {
+    method: "POST",
+  });
+}

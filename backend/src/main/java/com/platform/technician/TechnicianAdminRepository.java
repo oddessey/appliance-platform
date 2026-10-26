@@ -177,6 +177,43 @@ public class TechnicianAdminRepository {
                 : Optional.empty(), reservationId);
     }
 
+    public Optional<AssignmentState> findAssignmentForUpdate(UUID assignmentId) {
+        return jdbcTemplate.query("""
+                SELECT reservation_id, status
+                FROM technician_assignment
+                WHERE id = ?
+                FOR UPDATE
+                """, resultSet -> resultSet.next()
+                ? Optional.of(new AssignmentState(
+                resultSet.getObject("reservation_id", UUID.class),
+                resultSet.getString("status")))
+                : Optional.empty(), assignmentId);
+    }
+
+    public void cancelAssignment(
+            UUID assignmentId,
+            UUID reservationId,
+            String previousStatus,
+            UUID actorUserId
+    ) {
+        jdbcTemplate.update("""
+                UPDATE technician_assignment
+                SET status = 'CANCELLED', updated_at = now()
+                WHERE id = ?
+                """, assignmentId);
+        jdbcTemplate.update("""
+                INSERT INTO work_event (id, assignment_id, event_type, note, created_by)
+                VALUES (?, ?, 'CANCELLED', '관리자가 기사 배정을 취소했습니다.', ?)
+                """, UUID.randomUUID(), assignmentId, actorUserId);
+        jdbcTemplate.update("""
+                INSERT INTO audit_log
+                    (id, actor_user_id, action, entity_type, entity_id, before_summary, after_summary)
+                VALUES (?, ?, 'TECHNICIAN_ASSIGNMENT_ADMIN_CANCELLED', 'TECHNICIAN_ASSIGNMENT', ?,
+                        jsonb_build_object('reservationId', ?, 'status', ?),
+                        jsonb_build_object('reservationId', ?, 'status', 'CANCELLED'))
+                """, UUID.randomUUID(), actorUserId, assignmentId, reservationId, previousStatus, reservationId);
+    }
+
     public UUID createAssignment(
             UUID reservationId,
             UUID technicianProfileId,
@@ -304,6 +341,9 @@ public class TechnicianAdminRepository {
                 """, UUID.randomUUID(), actorUserId, profileId, previous.get().approvalStatus(),
                 previous.get().active(), approvalStatus, active);
         return true;
+    }
+
+    public record AssignmentState(UUID reservationId, String status) {
     }
 
     private record TechnicianApprovalState(String approvalStatus, boolean active) {

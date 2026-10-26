@@ -22,6 +22,11 @@ public class ReservationRepository {
              WHERE ta.reservation_id = r.id
              ORDER BY ta.assigned_at DESC, ta.id DESC
              LIMIT 1) AS technician_assignment_status,
+            (SELECT ta.id
+             FROM technician_assignment ta
+             WHERE ta.reservation_id = r.id
+             ORDER BY ta.assigned_at DESC, ta.id DESC
+             LIMIT 1) AS technician_assignment_id,
             (SELECT technician.name
              FROM technician_assignment ta
              JOIN technician_profile tp ON tp.id = ta.technician_id
@@ -419,6 +424,7 @@ public class ReservationRepository {
                 resultSet.getString("destination_address"),
                 resultSet.getBigDecimal("quote_total_amount"),
                 resultSet.getString("technician_assignment_status"),
+                resultSet.getObject("technician_assignment_id", UUID.class),
                 resultSet.getString("technician_name"));
     }
 

@@ -1,10 +1,12 @@
 com\platform\appliance\ApplianceType.class
+com\platform\installation\AdminAiAnalysisSummary.class
 com\platform\appliance\ApplianceTypeResponse.class
 com\platform\technician\TechnicianService.class
 com\platform\technician\TechnicianProfileUpdateRequest.class
 com\platform\technician\TechnicianProfileService.class
 com\platform\common\error\ApiErrorResponse.class
 com\platform\reservation\ReservationResponse.class
+com\platform\technician\TechnicianAdminRepository$AssignmentState.class
 com\platform\technician\TechnicianAdminController.class
 com\platform\technician\TechnicianEvidenceRepository.class
 com\platform\reservation\ReservationAvailabilityResponse.class
@@ -12,6 +14,7 @@ com\platform\pricing\PricingRequestPageResponse.class
 com\platform\pricing\QuoteResponse.class
 com\platform\pricing\PricingRequestNotFoundException.class
 com\platform\technician\TechnicianAutoAssignmentScheduler.class
+com\platform\installation\AdminInstallationService.class
 com\platform\PlatformApplication.class
 com\platform\config\JwtConfig.class
 com\platform\pricing\PricingRepository$PricingItem.class
@@ -33,6 +36,7 @@ com\platform\technician\TechnicianRepository.class
 com\platform\reservation\ReservationConflictException.class
 com\platform\pricing\QuoteLineResponse.class
 com\platform\common\error\ApiErrorResponse$FieldError.class
+com\platform\installation\AdminInstallationController.class
 com\platform\technician\TechnicianAssignmentPageResponse.class
 com\platform\installation\CreateInstallationRequest.class
 com\platform\pricing\PricingRequestSummary.class
@@ -74,6 +78,7 @@ com\platform\member\UpdateRolesRequest.class
 com\platform\member\AccountManagementConflictException.class
 com\platform\installation\InstallationRepository.class
 com\platform\reservation\ReservationRepository.class
+com\platform\installation\AdminInstallationPageResponse.class
 com\platform\installation\InstallationHistoryItem.class
 com\platform\installation\InstallationController.class
 com\platform\member\AccountResponse.class
@@ -139,6 +144,7 @@ com\platform\installation\InvalidInstallationPageException.class
 com\platform\member\MemberController.class
 com\platform\pricing\PriceRule.class
 com\platform\technician\AssignmentStatus.class
+com\platform\installation\AdminInstallationSummary.class
 com\platform\installation\InstallationService.class
 com\platform\member\AccountStatus.class
 com\platform\reservation\ReservationService.class
