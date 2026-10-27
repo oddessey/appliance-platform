@@ -36,3 +36,10 @@ AI가전이전설치 플랫폼 프로젝트
 - 관리자: `/admin` — `ADMIN` 역할로 로그인합니다. 최초 관리자 계정은 `/admin/register`에서 한 번 등록합니다.
 
 로그인 후 상단의 고객 화면·기사 화면·관리자 화면 메뉴로 역할별 화면을 전환할 수 있습니다. 계정에 여러 역할이 있으면 해당 역할의 화면 메뉴가 모두 표시됩니다.
+
+
+##실행
+- 프론드앤드 서버 기동 : npm run dev 
+                               (frontend 폴더내 package.json 존재하는 곳에서 실행)
+- 백앤드 서버 기동 : mvn -f pom.xml spring-boot:run    
+                           (backtend 폴더내 pom.xml 존재하는 곳에서 실행)

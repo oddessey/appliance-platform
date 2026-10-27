@@ -110,12 +110,17 @@ export function AddressSearchInput({ label, name }: AddressSearchInputProps) {
         value={detailAddress}
       />
       {open && (
-        <div className="popup-backdrop" onMouseDown={(event) => {
+        <div className="popup-backdrop address-search-backdrop" onMouseDown={(event) => {
           if (event.target === event.currentTarget) {
             setOpen(false);
           }
         }}>
-          <section aria-labelledby={`${name}-dialog-title`} aria-modal="true" className="popup-card" role="dialog">
+          <section
+            aria-labelledby={`${name}-dialog-title`}
+            aria-modal="true"
+            className="popup-card address-search-dialog"
+            role="dialog"
+          >
             <div className="popup-heading">
               <h2 id={`${name}-dialog-title`}>주소 검색</h2>
               <button aria-label="주소 검색 닫기" className="text-button" onClick={() => setOpen(false)} type="button">

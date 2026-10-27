@@ -2,13 +2,26 @@ import { TechnicianDashboard } from "../components/TechnicianDashboard";
 
 interface TechnicianScreenProps {
   technicianName: string;
+  profileOpen: boolean;
+  onOpenProfile: () => void;
+  onCloseProfile: () => void;
 }
 
-export function TechnicianScreen({ technicianName }: TechnicianScreenProps) {
+export function TechnicianScreen({
+  technicianName,
+  profileOpen,
+  onOpenProfile,
+  onCloseProfile,
+}: TechnicianScreenProps) {
   return (
     <>
       <div className="form-card installation-card technician-work-card">
-        <TechnicianDashboard technicianName={technicianName} />
+        <TechnicianDashboard
+          onCloseProfile={onCloseProfile}
+          onOpenProfile={onOpenProfile}
+          profileOpen={profileOpen}
+          technicianName={technicianName}
+        />
       </div>
       <aside className="info-panel technician-info-panel technician-status-panel">
         <span className="step-label">WORK FLOW</span>

@@ -18,6 +18,101 @@ public class TechnicianAdminRepository {
 
     public List<TechnicianCandidateResponse> findCandidates(UUID reservationId) {
         return jdbcTemplate.query("""
+                WITH address_region AS (
+                    SELECT r.id AS reservation_id,
+                           CASE split_part(regexp_replace(trim(mr.origin_address),
+                                       '^\\[[0-9]+\\][[:space:]]*', ''), ' ', 1)
+                               WHEN '서울' THEN '서울특별시'
+                               WHEN '부산' THEN '부산광역시'
+                               WHEN '대구' THEN '대구광역시'
+                               WHEN '인천' THEN '인천광역시'
+                               WHEN '광주' THEN '광주광역시'
+                               WHEN '대전' THEN '대전광역시'
+                               WHEN '울산' THEN '울산광역시'
+                               WHEN '세종' THEN '세종특별자치시'
+                               WHEN '경기' THEN '경기도'
+                               WHEN '강원' THEN '강원특별자치도'
+                               WHEN '강원도' THEN '강원특별자치도'
+                               WHEN '충북' THEN '충청북도'
+                               WHEN '충남' THEN '충청남도'
+                               WHEN '전북' THEN '전북특별자치도'
+                               WHEN '전라북도' THEN '전북특별자치도'
+                               WHEN '전남' THEN '전라남도'
+                               WHEN '경북' THEN '경상북도'
+                               WHEN '경남' THEN '경상남도'
+                               WHEN '제주' THEN '제주특별자치도'
+                               WHEN '제주도' THEN '제주특별자치도'
+                               ELSE split_part(regexp_replace(trim(mr.origin_address),
+                                       '^\\[[0-9]+\\][[:space:]]*', ''), ' ', 1)
+                           END AS origin_province,
+                           split_part(regexp_replace(trim(mr.origin_address),
+                                   '^\\[[0-9]+\\][[:space:]]*', ''), ' ', 2) AS origin_district,
+                           CASE split_part(regexp_replace(trim(mr.destination_address),
+                                       '^\\[[0-9]+\\][[:space:]]*', ''), ' ', 1)
+                               WHEN '서울' THEN '서울특별시'
+                               WHEN '부산' THEN '부산광역시'
+                               WHEN '대구' THEN '대구광역시'
+                               WHEN '인천' THEN '인천광역시'
+                               WHEN '광주' THEN '광주광역시'
+                               WHEN '대전' THEN '대전광역시'
+                               WHEN '울산' THEN '울산광역시'
+                               WHEN '세종' THEN '세종특별자치시'
+                               WHEN '경기' THEN '경기도'
+                               WHEN '강원' THEN '강원특별자치도'
+                               WHEN '강원도' THEN '강원특별자치도'
+                               WHEN '충북' THEN '충청북도'
+                               WHEN '충남' THEN '충청남도'
+                               WHEN '전북' THEN '전북특별자치도'
+                               WHEN '전라북도' THEN '전북특별자치도'
+                               WHEN '전남' THEN '전라남도'
+                               WHEN '경북' THEN '경상북도'
+                               WHEN '경남' THEN '경상남도'
+                               WHEN '제주' THEN '제주특별자치도'
+                               WHEN '제주도' THEN '제주특별자치도'
+                               ELSE split_part(regexp_replace(trim(mr.destination_address),
+                                       '^\\[[0-9]+\\][[:space:]]*', ''), ' ', 1)
+                           END AS destination_province,
+                           split_part(regexp_replace(trim(mr.destination_address),
+                                   '^\\[[0-9]+\\][[:space:]]*', ''), ' ', 2) AS destination_district
+                    FROM reservation r
+                    JOIN move_request mr ON mr.id = r.move_request_id
+                    WHERE r.id = ?
+                ),
+                technician_region AS (
+                    SELECT sa.technician_id,
+                           CASE split_part(regexp_replace(trim(sa.region_code),
+                                       '\\s+', ' ', 'g'), ' ', 1)
+                               WHEN '서울' THEN '서울특별시'
+                               WHEN '부산' THEN '부산광역시'
+                               WHEN '대구' THEN '대구광역시'
+                               WHEN '인천' THEN '인천광역시'
+                               WHEN '광주' THEN '광주광역시'
+                               WHEN '대전' THEN '대전광역시'
+                               WHEN '울산' THEN '울산광역시'
+                               WHEN '세종' THEN '세종특별자치시'
+                               WHEN '경기' THEN '경기도'
+                               WHEN '강원' THEN '강원특별자치도'
+                               WHEN '강원도' THEN '강원특별자치도'
+                               WHEN '충북' THEN '충청북도'
+                               WHEN '충남' THEN '충청남도'
+                               WHEN '전북' THEN '전북특별자치도'
+                               WHEN '전라북도' THEN '전북특별자치도'
+                               WHEN '전남' THEN '전라남도'
+                               WHEN '경북' THEN '경상북도'
+                               WHEN '경남' THEN '경상남도'
+                               WHEN '제주' THEN '제주특별자치도'
+                               WHEN '제주도' THEN '제주특별자치도'
+                               ELSE split_part(regexp_replace(trim(sa.region_code),
+                                       '\\s+', ' ', 'g'), ' ', 1)
+                           END AS province,
+                           CASE WHEN position(' ' IN regexp_replace(trim(sa.region_code),
+                                       '\\s+', ' ', 'g')) > 0
+                               THEN split_part(regexp_replace(trim(sa.region_code),
+                                       '\\s+', ' ', 'g'), ' ', 2)
+                           END AS district
+                    FROM technician_service_area sa
+                    WHERE sa.active = true
+                )
                 SELECT tp.id, u.name, tp.business_name, u.phone,
                        (SELECT count(*)
                         FROM technician_assignment load_assignment
@@ -26,6 +121,7 @@ public class TechnicianAdminRepository {
                               ('PENDING', 'ACCEPTED', 'ON_THE_WAY', 'WORK_STARTED')) AS active_count
                 FROM reservation r
                 JOIN move_request mr ON mr.id = r.move_request_id
+                JOIN address_region target ON target.reservation_id = r.id
                 JOIN technician_profile tp
                   ON tp.active = true AND tp.approval_status = 'APPROVED'
                  AND tp.license_info IS NOT NULL AND trim(tp.license_info) <> ''
@@ -33,15 +129,15 @@ public class TechnicianAdminRepository {
                 JOIN user_role role ON role.user_id = u.id AND role.role_code = 'TECHNICIAN'
                 WHERE r.id = ? AND r.status = 'CONFIRMED'
                   AND EXISTS (
-                      SELECT 1 FROM technician_service_area sa
-                      WHERE sa.technician_id = tp.id AND sa.active = true
-                        AND sa.region_code = split_part(trim(mr.origin_address), ' ', 1) || ' '
-                                               || split_part(trim(mr.origin_address), ' ', 2))
+                      SELECT 1 FROM technician_region region
+                      WHERE region.technician_id = tp.id
+                        AND region.province = target.origin_province
+                        AND (region.district IS NULL OR region.district = target.origin_district))
                   AND EXISTS (
-                      SELECT 1 FROM technician_service_area sa
-                      WHERE sa.technician_id = tp.id AND sa.active = true
-                        AND sa.region_code = split_part(trim(mr.destination_address), ' ', 1) || ' '
-                                               || split_part(trim(mr.destination_address), ' ', 2))
+                      SELECT 1 FROM technician_region region
+                      WHERE region.technician_id = tp.id
+                        AND region.province = target.destination_province
+                        AND (region.district IS NULL OR region.district = target.destination_district))
                   AND NOT EXISTS (
                       SELECT 1
                       FROM move_item required_item
@@ -86,7 +182,7 @@ public class TechnicianAdminRepository {
                 """, (resultSet, rowNumber) -> new TechnicianCandidateResponse(
                 resultSet.getObject("id", UUID.class), resultSet.getString("name"),
                 resultSet.getString("business_name"), resultSet.getString("phone"),
-                resultSet.getLong("active_count")), reservationId);
+                resultSet.getLong("active_count")), reservationId, reservationId);
     }
 
     public List<UUID> findUnassignedConfirmedReservationIds(UUID afterId, int limit) {

@@ -10,6 +10,7 @@ D:\smartmove-ai\appliance-platform\backend\src\test\java\com\platform\member\Mem
 D:\smartmove-ai\appliance-platform\backend\src\test\java\com\platform\pricing\PricingServiceTest.java
 D:\smartmove-ai\appliance-platform\backend\src\test\java\com\platform\reservation\ReservationRepositorySqlTest.java
 D:\smartmove-ai\appliance-platform\backend\src\test\java\com\platform\reservation\ReservationServiceTest.java
+D:\smartmove-ai\appliance-platform\backend\src\test\java\com\platform\technician\TechnicianAdminRepositorySqlTest.java
 D:\smartmove-ai\appliance-platform\backend\src\test\java\com\platform\technician\TechnicianAdminServiceTest.java
 D:\smartmove-ai\appliance-platform\backend\src\test\java\com\platform\technician\TechnicianEvidenceServiceTest.java
 D:\smartmove-ai\appliance-platform\backend\src\test\java\com\platform\technician\TechnicianProfileServiceTest.java

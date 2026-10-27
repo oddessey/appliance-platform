@@ -52,6 +52,7 @@ export function App() {
   const [authMode, setAuthMode] = useState<AuthMode>(readAuthMode);
   const [path, setPath] = useState(window.location.pathname);
   const [accountSettingsOpen, setAccountSettingsOpen] = useState(false);
+  const [technicianProfileOpen, setTechnicianProfileOpen] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
   const [sessionChecking, setSessionChecking] = useState(() => Boolean(getAccessToken()));
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -97,6 +98,8 @@ export function App() {
   useEffect(() => {
     function syncPath() {
       setPath(window.location.pathname);
+      setAccountSettingsOpen(false);
+      setTechnicianProfileOpen(false);
     }
     window.addEventListener("popstate", syncPath);
     return () => window.removeEventListener("popstate", syncPath);
@@ -109,6 +112,7 @@ export function App() {
       setAuthMode("login");
       rememberAuthMode("login");
       setAccountSettingsOpen(false);
+      setTechnicianProfileOpen(false);
       setErrorMessage("로그인이 만료되었습니다. 다시 로그인해 주세요.");
     }
 
@@ -131,6 +135,7 @@ export function App() {
     }
     setPath(nextPath);
     setAccountSettingsOpen(false);
+    setTechnicianProfileOpen(false);
     setErrorMessage(null);
   }
 
@@ -232,6 +237,397 @@ export function App() {
     technician: ["오늘의 배정", "현장 진행", "완료 증빙"],
     admin: ["요청·AI 검토", "회원·기사 관리", "예약·배정 운영"],
   };
+
+  if ((screen === "customer" || screen === "technician") && !authUser && !isAdminRegistration) {
+    const isTechnicianGuest = screen === "technician";
+    const statusTime = new Intl.DateTimeFormat("ko-KR", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).format(new Date());
+
+    return (
+      <main className={`customer-app customer-app--guest${isTechnicianGuest ? " technician-app" : ""}`}>
+        <div className="customer-app-device">
+          <div className="customer-app-screen">
+            <div aria-hidden="true" className="customer-app-statusbar">
+              <span>{statusTime}</span>
+              <span className="customer-app-island" />
+              <span className="customer-app-status-icons">
+                <span className="customer-app-signal"><i /><i /><i /><i /></span>
+                <svg className="customer-app-wifi" fill="none" viewBox="0 0 16 12">
+                  <path d="M1.5 4.2C5.2.9 10.8.9 14.5 4.2" stroke="currentColor" strokeLinecap="round" strokeWidth="1.6" />
+                  <path d="M4 7.2c2.3-1.9 5.7-1.9 8 0" stroke="currentColor" strokeLinecap="round" strokeWidth="1.6" />
+                  <circle cx="8" cy="10" fill="currentColor" r="1.1" />
+                </svg>
+                <span className="customer-app-battery" />
+              </span>
+            </div>
+
+            <header className="customer-app-header">
+              <button
+                className="customer-app-brand"
+                onClick={() => navigate(isTechnicianGuest ? "/technician" : "/customer")}
+                type="button"
+              >
+                <span className="brand-mark" aria-hidden="true">S</span>
+                <span>스마트무브</span>
+              </button>
+              <span className="customer-app-guest-badge">
+                {isTechnicianGuest ? "기사 전용" : "고객 전용"}
+              </span>
+            </header>
+
+            <div className="customer-app-scroll">
+              <section className="customer-app-hero">
+                <span className="eyebrow">{isTechnicianGuest ? "TECHNICIAN APP" : "SMART MOVE APP"}</span>
+                {isTechnicianGuest ? (
+                  <>
+                    <h1>배정부터 완료까지,<br />한눈에 관리하세요.</h1>
+                    <p>기사 계정으로 로그인해 배정된 작업과 일정을 확인하고 안전하게 진행하세요.</p>
+                  </>
+                ) : (
+                  <>
+                    <h1>가전 이전설치,<br />지금 시작하세요.</h1>
+                    <p>회원가입 후 제품과 이동 정보를 입력하면 견적과 예약까지 한 번에 진행할 수 있습니다.</p>
+                  </>
+                )}
+                <div className="customer-app-hero-chips">
+                  {heroBenefits[screen].map((item) => <span key={item}>{item}</span>)}
+                </div>
+              </section>
+
+              <div className="customer-app-content customer-app-guest-content">
+                {sessionChecking ? (
+                  <div aria-live="polite" className="form-card installation-card customer-app-auth-loading">
+                    로그인 상태를 확인하는 중...
+                  </div>
+                ) : (
+                  <AuthScreen
+                    authMode={authMode}
+                    error={errorMessage}
+                    loading={authLoading}
+                    screen={screen}
+                    onModeChange={(mode) => {
+                      setAuthMode(mode);
+                      rememberAuthMode(mode);
+                      setErrorMessage(null);
+                    }}
+                    onSubmit={(event) => void handleAuthSubmit(event)}
+                  />
+                )}
+                {!isTechnicianGuest && <PublicInformationPanel />}
+              </div>
+            </div>
+
+            <footer className="customer-app-guest-footer">
+              <span className="customer-app-lock" aria-hidden="true">
+                <svg fill="none" viewBox="0 0 12 14">
+                  <rect height="6.5" rx="1.5" stroke="currentColor" strokeWidth="1.4" width="9" x="1.5" y="6" />
+                  <path d="M3.5 6V4.2a2.5 2.5 0 0 1 5 0V6" stroke="currentColor" strokeLinecap="round" strokeWidth="1.4" />
+                </svg>
+              </span>
+              <span>{isTechnicianGuest ? "기사 전용 작업 관리 앱" : "고객 전용 설치 요청 앱"} · 안전한 로그인</span>
+            </footer>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  if (screen === "customer" && authUser && hasScreenAccess) {
+    const isHistory = path === "/customer/history";
+    const otherScreens = (["technician", "admin"] as const)
+      .filter((item) => authUser.roles.includes(screenRole(item)));
+    const statusTime = new Intl.DateTimeFormat("ko-KR", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).format(new Date());
+
+    return (
+      <main className="customer-app">
+        <div className="customer-app-device">
+          <div className="customer-app-screen">
+            <div aria-hidden="true" className="customer-app-statusbar">
+              <span>{statusTime}</span>
+              <span className="customer-app-island" />
+              <span className="customer-app-status-icons">
+                <span className="customer-app-signal"><i /><i /><i /><i /></span>
+                <svg className="customer-app-wifi" fill="none" viewBox="0 0 16 12">
+                  <path d="M1.5 4.2C5.2.9 10.8.9 14.5 4.2" stroke="currentColor" strokeLinecap="round" strokeWidth="1.6" />
+                  <path d="M4 7.2c2.3-1.9 5.7-1.9 8 0" stroke="currentColor" strokeLinecap="round" strokeWidth="1.6" />
+                  <circle cx="8" cy="10" fill="currentColor" r="1.1" />
+                </svg>
+                <span className="customer-app-battery" />
+              </span>
+            </div>
+
+            <header className="customer-app-header">
+              <button
+                className="customer-app-brand"
+                onClick={() => {
+                  setAccountSettingsOpen(false);
+                  navigate("/customer");
+                }}
+                type="button"
+              >
+                <span className="brand-mark" aria-hidden="true">S</span>
+                <span>스마트무브</span>
+              </button>
+              <div className="customer-app-header-actions">
+                <span className="customer-app-greeting">{authUser.name}님</span>
+                <button
+                  aria-label="내 정보 열기"
+                  aria-pressed={accountSettingsOpen}
+                  className={`customer-app-avatar${accountSettingsOpen ? " is-active" : ""}`}
+                  onClick={() => setAccountSettingsOpen((open) => !open)}
+                  type="button"
+                >
+                  {authUser.name.trim().charAt(0) || "U"}
+                </button>
+              </div>
+            </header>
+
+            <div className="customer-app-scroll">
+              {accountSettingsOpen ? (
+                <AccountPanel
+                  eyebrow="MY ACCOUNT"
+                  onLogOut={() => void handleLogOut()}
+                  onOpenScreen={openScreen}
+                  onPasswordChanged={handlePasswordChanged}
+                  onProfileChanged={handleProfileChanged}
+                  otherScreens={otherScreens}
+                  user={authUser}
+                />
+              ) : (
+                <>
+                  {!isHistory && (
+                    <section className="customer-app-hero">
+                      <span className="eyebrow">SMART MOVE</span>
+                      <h1>{authUser.name}님,<br />가전 이전설치를 간편하게.</h1>
+                      <p>{title.description}</p>
+                      <div className="customer-app-hero-chips">
+                        {heroBenefits.customer.map((item) => <span key={item}>{item}</span>)}
+                      </div>
+                    </section>
+                  )}
+                  <div className="customer-app-content">
+                    <CustomerScreen
+                      showHistory={isHistory}
+                      onViewHistory={() => navigate("/customer/history")}
+                      onViewHome={() => {
+                        setAccountSettingsOpen(false);
+                        navigate("/customer");
+                      }}
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+
+            <nav aria-label="고객 앱 메뉴" className="customer-app-tabbar">
+              <button
+                aria-current={!accountSettingsOpen && !isHistory ? "page" : undefined}
+                className={!accountSettingsOpen && !isHistory ? "is-active" : ""}
+                onClick={() => {
+                  setAccountSettingsOpen(false);
+                  navigate("/customer");
+                }}
+                type="button"
+              >
+                <span className="customer-app-tab-icon">
+                  <svg aria-hidden="true" fill="none" viewBox="0 0 24 24">
+                    <path d="M4 10.8 12 4l8 6.8V20h-5.5v-5.6h-5V20H4V10.8Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" />
+                  </svg>
+                </span>
+                <span>홈</span>
+              </button>
+              <button
+                aria-current={!accountSettingsOpen && isHistory ? "page" : undefined}
+                className={!accountSettingsOpen && isHistory ? "is-active" : ""}
+                onClick={() => {
+                  setAccountSettingsOpen(false);
+                  navigate("/customer/history");
+                }}
+                type="button"
+              >
+                <span className="customer-app-tab-icon">
+                  <svg aria-hidden="true" fill="none" viewBox="0 0 24 24">
+                    <path d="M6 3.5h12v17l-3-1.8-3 1.8-3-1.8-3 1.8v-17Z" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.8" />
+                    <path d="M9 8h6M9 11.5h6M9 15h4" stroke="currentColor" strokeLinecap="round" strokeWidth="1.8" />
+                  </svg>
+                </span>
+                <span>접수 내역</span>
+              </button>
+              <button
+                aria-current={accountSettingsOpen ? "page" : undefined}
+                className={accountSettingsOpen ? "is-active" : ""}
+                onClick={() => setAccountSettingsOpen(true)}
+                type="button"
+              >
+                <span className="customer-app-tab-icon">
+                  <svg aria-hidden="true" fill="none" viewBox="0 0 24 24">
+                    <circle cx="12" cy="8.2" r="3.4" stroke="currentColor" strokeWidth="1.8" />
+                    <path d="M5 20c.5-3.7 3.1-6 7-6s6.5 2.3 7 6" stroke="currentColor" strokeLinecap="round" strokeWidth="1.8" />
+                  </svg>
+                </span>
+                <span>내 정보</span>
+              </button>
+            </nav>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  if (screen === "technician" && authUser && hasScreenAccess) {
+    const otherScreens = (["customer", "admin"] as const)
+      .filter((item) => authUser.roles.includes(screenRole(item)));
+    const statusTime = new Intl.DateTimeFormat("ko-KR", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).format(new Date());
+
+    return (
+      <main className="customer-app technician-app">
+        <div className="customer-app-device">
+          <div className="customer-app-screen">
+            <div aria-hidden="true" className="customer-app-statusbar">
+              <span>{statusTime}</span>
+              <span className="customer-app-island" />
+              <span className="customer-app-status-icons">
+                <span className="customer-app-signal"><i /><i /><i /><i /></span>
+                <svg className="customer-app-wifi" fill="none" viewBox="0 0 16 12">
+                  <path d="M1.5 4.2C5.2.9 10.8.9 14.5 4.2" stroke="currentColor" strokeLinecap="round" strokeWidth="1.6" />
+                  <path d="M4 7.2c2.3-1.9 5.7-1.9 8 0" stroke="currentColor" strokeLinecap="round" strokeWidth="1.6" />
+                  <circle cx="8" cy="10" fill="currentColor" r="1.1" />
+                </svg>
+                <span className="customer-app-battery" />
+              </span>
+            </div>
+
+            <header className="customer-app-header">
+              <button
+                className="customer-app-brand"
+                onClick={() => navigate("/technician")}
+                type="button"
+              >
+                <span className="brand-mark" aria-hidden="true">S</span>
+                <span>스마트무브</span>
+              </button>
+              <div className="customer-app-header-actions">
+                <span className="customer-app-greeting">{authUser.name} 기사님</span>
+                <button
+                  aria-label="내 정보 열기"
+                  aria-pressed={accountSettingsOpen}
+                  className={`customer-app-avatar${accountSettingsOpen ? " is-active" : ""}`}
+                  onClick={() => {
+                    setTechnicianProfileOpen(false);
+                    setAccountSettingsOpen((open) => !open);
+                  }}
+                  type="button"
+                >
+                  {authUser.name.trim().charAt(0) || "U"}
+                </button>
+              </div>
+            </header>
+
+            <div className="customer-app-scroll">
+              {accountSettingsOpen ? (
+                <AccountPanel
+                  eyebrow="TECHNICIAN ACCOUNT"
+                  onLogOut={() => void handleLogOut()}
+                  onOpenScreen={openScreen}
+                  onPasswordChanged={handlePasswordChanged}
+                  onProfileChanged={handleProfileChanged}
+                  otherScreens={otherScreens}
+                  user={authUser}
+                />
+              ) : (
+                <>
+                  {!technicianProfileOpen && (
+                    <section className="customer-app-hero">
+                      <span className="eyebrow">TECHNICIAN APP</span>
+                      <h1>{authUser.name} 기사님,<br />오늘도 안전하게.</h1>
+                      <p>배정된 작업을 확인하고 출발부터 완료까지 기록하세요.</p>
+                      <div className="customer-app-hero-chips">
+                        {heroBenefits.technician.map((item) => <span key={item}>{item}</span>)}
+                      </div>
+                    </section>
+                  )}
+                  <div className={`customer-app-content technician-app-content${technicianProfileOpen ? " is-profile" : ""}`}>
+                    <TechnicianScreen
+                      onCloseProfile={() => setTechnicianProfileOpen(false)}
+                      onOpenProfile={() => setTechnicianProfileOpen(true)}
+                      profileOpen={technicianProfileOpen}
+                      technicianName={authUser.name}
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+
+            <nav aria-label="기사 앱 메뉴" className="customer-app-tabbar">
+              <button
+                aria-current={!accountSettingsOpen && !technicianProfileOpen ? "page" : undefined}
+                className={!accountSettingsOpen && !technicianProfileOpen ? "is-active" : ""}
+                onClick={() => {
+                  setAccountSettingsOpen(false);
+                  setTechnicianProfileOpen(false);
+                }}
+                type="button"
+              >
+                <span className="customer-app-tab-icon">
+                  <svg aria-hidden="true" fill="none" viewBox="0 0 24 24">
+                    <rect height="16" rx="2.5" stroke="currentColor" strokeWidth="1.8" width="13" x="5.5" y="4" />
+                    <path d="M9 9h6M9 12.5h6M9 16h3.5" stroke="currentColor" strokeLinecap="round" strokeWidth="1.8" />
+                  </svg>
+                </span>
+                <span>배정</span>
+              </button>
+              <button
+                aria-current={!accountSettingsOpen && technicianProfileOpen ? "page" : undefined}
+                className={!accountSettingsOpen && technicianProfileOpen ? "is-active" : ""}
+                onClick={() => {
+                  setAccountSettingsOpen(false);
+                  setTechnicianProfileOpen(true);
+                }}
+                type="button"
+              >
+                <span className="customer-app-tab-icon">
+                  <svg aria-hidden="true" fill="none" viewBox="0 0 24 24">
+                    <rect height="14" rx="2.5" stroke="currentColor" strokeWidth="1.8" width="17" x="3.5" y="5" />
+                    <circle cx="9" cy="11" r="2.2" stroke="currentColor" strokeWidth="1.8" />
+                    <path d="M6.5 16c.4-1.5 1.3-2.2 2.5-2.2s2.1.7 2.5 2.2M14.5 10h4M14.5 13.5h4" stroke="currentColor" strokeLinecap="round" strokeWidth="1.8" />
+                  </svg>
+                </span>
+                <span>프로필</span>
+              </button>
+              <button
+                aria-current={accountSettingsOpen ? "page" : undefined}
+                className={accountSettingsOpen ? "is-active" : ""}
+                onClick={() => {
+                  setTechnicianProfileOpen(false);
+                  setAccountSettingsOpen(true);
+                }}
+                type="button"
+              >
+                <span className="customer-app-tab-icon">
+                  <svg aria-hidden="true" fill="none" viewBox="0 0 24 24">
+                    <circle cx="12" cy="8.2" r="3.4" stroke="currentColor" strokeWidth="1.8" />
+                    <path d="M5 20c.5-3.7 3.1-6 7-6s6.5 2.3 7 6" stroke="currentColor" strokeLinecap="round" strokeWidth="1.8" />
+                  </svg>
+                </span>
+                <span>내 정보</span>
+              </button>
+            </nav>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className={`page-shell page-shell--${screen}`}>
@@ -369,7 +765,12 @@ export function App() {
                 onViewHome={() => openScreen("customer")}
               />
             ) : screen === "technician" ? (
-              <TechnicianScreen technicianName={authUser.name} />
+              <TechnicianScreen
+                onCloseProfile={() => setTechnicianProfileOpen(false)}
+                onOpenProfile={() => setTechnicianProfileOpen(true)}
+                profileOpen={technicianProfileOpen}
+                technicianName={authUser.name}
+              />
             ) : (
               <AdminScreen currentMemberId={authUser.id} />
             )}
@@ -567,6 +968,70 @@ function AuthScreen({ authMode, error, loading, screen, onModeChange, onSubmit }
         )}
       </div>
     </div>
+  );
+}
+
+interface AccountPanelProps {
+  eyebrow: string;
+  onLogOut: () => void;
+  onOpenScreen: (screen: Screen) => void;
+  onPasswordChanged: () => void;
+  onProfileChanged: (profile: MemberProfile) => void;
+  otherScreens: readonly Screen[];
+  user: AuthUser;
+}
+
+function AccountPanel({
+  eyebrow,
+  onLogOut,
+  onOpenScreen,
+  onPasswordChanged,
+  onProfileChanged,
+  otherScreens,
+  user,
+}: AccountPanelProps) {
+  return (
+    <section aria-label="내 정보" className="customer-app-account">
+      <div className="customer-app-account-hero">
+        <span className="customer-app-avatar-large" aria-hidden="true">
+          {user.name.trim().charAt(0) || "U"}
+        </span>
+        <div>
+          <span className="eyebrow">{eyebrow}</span>
+          <h1>{user.name}님</h1>
+          <p>{user.email}</p>
+        </div>
+      </div>
+      <AccountSettings
+        onPasswordChanged={onPasswordChanged}
+        onProfileChanged={onProfileChanged}
+      />
+      {otherScreens.length > 0 && (
+        <div className="customer-app-panel">
+          <span className="step-label">WORKSPACE</span>
+          <h2>다른 화면</h2>
+          <div className="customer-app-role-links">
+            {otherScreens.map((item) => (
+              <button
+                className="secondary-button"
+                key={item}
+                onClick={() => onOpenScreen(item)}
+                type="button"
+              >
+                {screenLabel(item)}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      <button
+        className="secondary-button customer-app-logout"
+        onClick={onLogOut}
+        type="button"
+      >
+        로그아웃
+      </button>
+    </section>
   );
 }
 

@@ -29,9 +29,17 @@ const FILTERS: Array<{ label: string; value?: TechnicianAssignmentStatus }> = [
 
 interface TechnicianDashboardProps {
   technicianName: string;
+  profileOpen: boolean;
+  onOpenProfile: () => void;
+  onCloseProfile: () => void;
 }
 
-export function TechnicianDashboard({ technicianName }: TechnicianDashboardProps) {
+export function TechnicianDashboard({
+  technicianName,
+  profileOpen,
+  onOpenProfile,
+  onCloseProfile,
+}: TechnicianDashboardProps) {
   const [assignments, setAssignments] = useState<TechnicianAssignment[]>([]);
   const [status, setStatus] = useState<TechnicianAssignmentStatus | undefined>("PENDING");
   const [page, setPage] = useState(0);
@@ -42,7 +50,6 @@ export function TechnicianDashboard({ technicianName }: TechnicianDashboardProps
   const [rejectReason, setRejectReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
-  const [profileOpen, setProfileOpen] = useState(false);
   const [uploadedEvidence, setUploadedEvidence] = useState<Record<string, TechnicianEvidence[]>>({});
 
   const loadAssignments = useCallback(async (
@@ -158,7 +165,7 @@ export function TechnicianDashboard({ technicianName }: TechnicianDashboardProps
   }
 
   if (profileOpen) {
-    return <TechnicianProfilePanel onClose={() => setProfileOpen(false)} />;
+    return <TechnicianProfilePanel onClose={onCloseProfile} />;
   }
 
   return (
@@ -170,7 +177,7 @@ export function TechnicianDashboard({ technicianName }: TechnicianDashboardProps
           <p>배정 대기 작업부터 표시합니다. 새 관리 배정은 15초마다 자동으로 반영됩니다.</p>
         </div>
         <div className="technician-heading-actions">
-          <button className="text-button" onClick={() => setProfileOpen(true)} type="button">
+          <button className="text-button" onClick={onOpenProfile} type="button">
             기사 프로필·일정
           </button>
           <button className="address-search-button" disabled={loading} onClick={() => void loadAssignments(page)} type="button">
