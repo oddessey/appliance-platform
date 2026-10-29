@@ -114,8 +114,9 @@ class TechnicianServiceTest {
 
     private TechnicianAssignmentResponse assignment(AssignmentStatus status) {
         return new TechnicianAssignmentResponse(
-                UUID.randomUUID(), status.name(), "RSV-123456", OffsetDateTime.now().plusDays(1),
+                UUID.randomUUID(), UUID.randomUUID(), status.name(), "RSV-123456",
+                OffsetDateTime.now().plusDays(1),
                 OffsetDateTime.now().plusDays(1).plusHours(2), "고객", "010-1234-5678",
-                "이전 주소", "설치 주소", "세탁기", null);
+                "이전 주소", "설치 주소", "세탁기", null, null, null);
     }
 }

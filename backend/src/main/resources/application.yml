@@ -23,6 +23,8 @@ security:
 appliance:
   evidence:
     storage-path: ${WORK_EVIDENCE_PATH:uploads/work-evidence}
+  request-image:
+    storage-path: ${REQUEST_IMAGE_PATH:uploads/request-images}
 
 technician:
   assignment:

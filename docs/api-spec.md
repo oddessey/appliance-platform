@@ -102,7 +102,8 @@
 | 이전설치 | POST | `/move-requests/{id}/submit` | 소유 고객 | 접수 |
 | 이전설치 | POST | `/move-requests/{id}/cancel` | 소유 고객/관리자 | 요청 취소 |
 | 이미지 | POST | `/move-requests/{id}/images` | 소유 고객/관리자 | 이미지 등록 |
-| 이미지 | GET | `/move-requests/{id}/images` | 소유 고객/배정 기사/관리자 | 이미지 목록 |
+| 이미지 | GET | `/move-requests/{id}/images` | 소유 고객/배정 기사/관리자 | 고객 첨부 이미지 목록 |
+| 이미지 | GET | `/move-requests/{id}/images/{imageId}` | 소유 고객/배정 기사/관리자 | 고객 첨부 이미지 조회 |
 | AI 분석 | POST | `/move-requests/{id}/analysis` | 소유 고객/관리자 | 분석 요청 |
 | AI 분석 | GET | `/move-requests/{id}/analysis/{analysisId}` | 소유 고객/관리자 | 분석 결과 조회 |
 | 견적 | POST | `/move-requests/{id}/quotes` | 시스템/관리자 | 견적 계산 |
@@ -323,7 +324,7 @@
 
 `PATCH /api/v1/admin/users/{id}/status` 요청은 `{"status":"SUSPENDED"}` 형식이며 허용 상태는 `ACTIVE`, `SUSPENDED`, `WITHDRAWN`이다. 역할 또는 상태가 변경되면 기존 토큰을 무효화한다. 활성 상태가 아닌 계정은 인증할 수 없다. 관리자 API는 서버에서 `ADMIN` 역할을 검증하며, 관리자는 자신의 역할이나 계정 상태를 변경할 수 없다.
 
-### 3.6 이미지 업로드
+### 3.6 고객 요청 이미지 업로드 및 조회
 
 `POST /api/v1/move-requests/{id}/images`
 
@@ -332,7 +333,43 @@
 - `purpose`: `APPLIANCE` 또는 `INSTALLATION_ENV`
 - `moveItemId`: 선택값
 
-서버는 파일 크기, MIME 타입, 실제 파일 형식, 요청 소유권을 검증한다. 응답에는 파일 메타데이터와 이미지 ID를 반환하고 내부 스토리지 비밀정보는 노출하지 않는다.
+서버는 파일 크기, MIME 타입, 실제 파일 형식, 요청 소유권을 검증한다. JPEG, PNG, WebP 형식만 허용하며 파일당 최대 크기는 10MB다. 저장 파일명과 객체 키는 서버에서 생성하고 내부 스토리지 경로는 응답에 노출하지 않는다.
+
+응답 `201 Created`:
+
+```json
+{
+  "id": "0f6bb4a2-12bd-4f2e-8fcf-9fd7e3bb67fb",
+  "moveRequestId": "c8d4c8c0-89b5-48b6-9b13-0f93b7df4f3c",
+  "moveItemId": null,
+  "purpose": "APPLIANCE",
+  "originalFilename": "washing-machine.jpg",
+  "contentType": "image/jpeg",
+  "sizeBytes": 245760,
+  "uploadedAt": "2026-10-19T10:21:30+09:00"
+}
+```
+
+`GET /api/v1/move-requests/{id}/images`는 해당 요청에 고객이 첨부한 `APPLIANCE`, `INSTALLATION_ENV` 이미지 메타데이터를 `createdAt` 오름차순 배열로 반환한다. 기사 작업 증빙(`WORK_PROOF`)은 포함하지 않는다. 접근 가능한 대상은 요청 소유 고객, 해당 요청에 유효하게 배정된 기사, 관리자다.
+
+```json
+[
+  {
+    "id": "0f6bb4a2-12bd-4f2e-8fcf-9fd7e3bb67fb",
+    "moveRequestId": "c8d4c8c0-89b5-48b6-9b13-0f93b7df4f3c",
+    "moveItemId": null,
+    "purpose": "APPLIANCE",
+    "originalFilename": "washing-machine.jpg",
+    "contentType": "image/jpeg",
+    "sizeBytes": 245760,
+    "uploadedAt": "2026-10-19T10:21:30+09:00"
+  }
+]
+```
+
+`GET /api/v1/move-requests/{id}/images/{imageId}`는 같은 접근 권한으로 이미지 원본을 반환한다. 응답은 저장된 `Content-Type`과 `Content-Disposition: inline`을 사용하며 내부 객체 키와 스토리지 경로는 노출하지 않는다.
+
+권한이 없거나 요청이 없으면 `404 MOVE_REQUEST_NOT_FOUND`, 접근 가능한 요청이지만 이미지가 없으면 `404 MOVE_REQUEST_IMAGE_NOT_FOUND`, 파일 형식·크기 또는 `purpose`가 올바르지 않으면 `400 INVALID_MOVE_REQUEST_IMAGE`를 반환한다.
 
 ### 3.6 AI 분석 요청 및 조회
 
@@ -459,7 +496,7 @@ AI 결과는 확정 견적이 아니다. 낮은 신뢰도·불충분한 정보�
 
 고객은 `GET /api/v1/reservations?page=0&size=20`으로 본인 예약을 조회한다. 상세 조회는 `GET /api/v1/reservations/{id}`이며, 관리자 목록은 `GET /api/v1/admin/reservations?status=CONFIRMED&page=0&size=20`이다. 소유권이 없거나 리소스가 없으면 `404 RESERVATION_NOT_FOUND`를 반환한다.
 
-일정 변경은 `POST /api/v1/reservations/{id}/reschedule`에 새 `scheduledStartAt`, `scheduledEndAt`을 전달한다. 고객은 예약 시작 전에 변경할 수 있으며, 일정 충돌이 없으면 동일 트랜잭션에서 즉시 변경하고 `CONFIRMED` 상태를 유지한다. 관리자는 `PATCH /api/v1/admin/reservations/{id}/schedule`로 같은 변경을 수행할 수 있다. 일정 변경이나 취소 시 시작 전 기사 배정은 `CANCELLED` 처리하고 재배정 대상으로 돌린다. 고객은 예약 시작 전에만 `POST /api/v1/reservations/{id}/cancel`로 취소할 수 있으며, 관리자는 `POST /api/v1/admin/reservations/{id}/cancel`로 취소할 수 있다. 취소 시 설치 요청은 `QUOTED`로 돌아가며 수락된 견적은 유지되어 재예약할 수 있다. 이미 작업이 시작되거나 완료된 예약은 변경·취소할 수 없다.
+일정 변경은 `POST /api/v1/reservations/{id}/reschedule`에 새 `scheduledStartAt`, `scheduledEndAt`을 전달한다. 고객은 예약 시작 전에 변경할 수 있으며, 일정 충돌이 없으면 동일 트랜잭션에서 즉시 변경하고 `CONFIRMED` 상태를 유지한다. 관리자는 `PATCH /api/v1/admin/reservations/{id}/schedule`로 같은 변경을 수행할 수 있다. 일정 변경이나 취소 시 시작 전 기사 배정은 `CANCELLED` 처리하고 재배정 대상으로 돌린다. 고객은 예약 시작 전이면서 기사가 배정을 수락하기 전에만 `POST /api/v1/reservations/{id}/cancel`로 취소할 수 있으며, 관리자는 `POST /api/v1/admin/reservations/{id}/cancel`로 취소할 수 있다. 기사가 수락한 뒤 고객 취소는 `409 RESERVATION_NOT_ACCEPTABLE`로 거부된다. 취소 시 설치 요청은 `QUOTED`로 돌아가며 수락된 견적은 유지되어 재예약할 수 있다. 이미 작업이 시작되거나 완료된 예약은 변경·취소할 수 없다.
 
 예약 생성·일정 변경·취소는 모두 트랜잭션과 감사 로그로 처리한다. 이미 활성 예약이 있는 설치 요청은 `409 ACTIVE_RESERVATION_EXISTS`를 반환하며, 멱등 키를 다른 본문에 재사용하면 `409 IDEMPOTENCY_KEY_CONFLICT`를 반환한다. 제약조건 충돌은 `409 RESERVATION_CONFLICT`로 반환한다. 잘못된 날짜 범위 또는 멱등 키는 `422 INVALID_RESERVATION_INTERVAL`이다. `PENDING` 상태의 오래된 예약은 생성 시각으로부터 24시간 뒤 만료 작업에서 `EXPIRED` 처리한다. 자동 확정 정책으로 생성되는 신규 예약은 `CONFIRMED`로 시작한다.
 
@@ -491,7 +528,7 @@ AI 결과는 확정 견적이 아니다. 낮은 신뢰도·불충분한 정보�
 
 ### 3.8 기사 작업 이벤트
 
-`GET /api/v1/technicians/me/assignments?status=PENDING&page=0&size=20`은 로그인한 기사의 배정 목록을 반환한다. 상태는 선택값이며 페이지 크기는 1~100이다. 기사는 승인 및 활성 상태인 기사 프로필이 있어야 하며, 응답에는 배정 ID·상태·예약 번호·작업 일정·고객 연락처·이전/설치 주소·가전 종류가 포함된다.
+`GET /api/v1/technicians/me/assignments?status=PENDING&page=0&size=20`은 로그인한 기사의 배정 목록을 반환한다. 상태는 선택값이며 페이지 크기는 1~100이다. 기사는 승인 및 활성 상태인 기사 프로필이 있어야 하며, 응답에는 배정 ID·요청 ID(`moveRequestId`)·상태·예약 번호·작업 일정·고객 연락처·이전/설치 주소·가전 종류가 포함된다.
 
 `POST /api/v1/assignments/{id}/accept`은 대기 배정을 수락해 `ACCEPTED`로 전환한다. `POST /api/v1/assignments/{id}/reject` 요청은 `{"reason":"일정이 맞지 않습니다."}`이며 `REJECTED`로 전환한다. 두 요청 모두 갱신된 배정을 반환한다.
 

@@ -1,4 +1,4 @@
 -------------------------------------------------------------------------------
 Test set: com.platform.auth.AuthServiceTest
 -------------------------------------------------------------------------------
-Tests run: 11, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.893 s -- in com.platform.auth.AuthServiceTest
+Tests run: 11, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.884 s -- in com.platform.auth.AuthServiceTest

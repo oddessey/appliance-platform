@@ -6,6 +6,7 @@ import {
   getTechnicianCandidates,
 } from "../api/installations";
 import { ApiError } from "../api/client";
+import { RequestPhotoGallery } from "./RequestPhotoGallery";
 import type {
   AdminInstallationSummary,
   PendingTechnicianReservation,
@@ -416,6 +417,8 @@ function InstallationReviewCard({ installation, onAssignmentChanged }: Installat
         <div><dt>설치 주소</dt><dd>{installation.destinationAddress}</dd></div>
         <div><dt>희망 일정</dt><dd>{formatDate(installation.desiredStartAt)}</dd></div>
       </dl>
+
+      <RequestPhotoGallery moveRequestId={installation.id} />
 
       <section aria-label="예약 및 기사 배정 상태" className="admin-request-assignment">
         <div>

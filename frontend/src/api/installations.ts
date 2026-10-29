@@ -5,6 +5,8 @@ import type {
   CreateInstallationRequest,
   InstallationHistoryResponse,
   InstallationResponse,
+  MoveRequestImage,
+  MoveRequestImagePurpose,
   TechnicianAssignment,
   TechnicianAssignmentPage,
   TechnicianAssignmentStatus,
@@ -32,6 +34,32 @@ export function createInstallation(
 
 export function getInstallations(page = 0, size = 20): Promise<InstallationHistoryResponse> {
   return apiRequest<InstallationHistoryResponse>(`/installations?page=${page}&size=${size}`);
+}
+
+export function uploadMoveRequestImage(
+  moveRequestId: string,
+  file: File,
+  purpose: MoveRequestImagePurpose,
+): Promise<MoveRequestImage> {
+  const form = new FormData();
+  form.append("file", file);
+  form.append("purpose", purpose);
+  return apiRequest<MoveRequestImage>(`/move-requests/${encodeURIComponent(moveRequestId)}/images`, {
+    method: "POST",
+    body: form,
+  });
+}
+
+export function getMoveRequestImages(moveRequestId: string): Promise<MoveRequestImage[]> {
+  return apiRequest<MoveRequestImage[]>(
+    `/move-requests/${encodeURIComponent(moveRequestId)}/images`,
+  );
+}
+
+export function downloadMoveRequestImage(moveRequestId: string, imageId: string): Promise<Blob> {
+  return apiBlobRequest(
+    `/move-requests/${encodeURIComponent(moveRequestId)}/images/${encodeURIComponent(imageId)}`,
+  );
 }
 
 export function getAdminInstallations(

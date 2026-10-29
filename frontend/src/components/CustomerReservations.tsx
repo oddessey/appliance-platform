@@ -5,7 +5,6 @@ import {
   checkReservationAvailability,
   createReservation,
   getReservations,
-  rescheduleReservation,
 } from "../api/reservations";
 import { ApiError } from "../api/client";
 import type { Reservation } from "../types/reservation";
@@ -34,18 +33,21 @@ export function CustomerReservations({ requestId, quoteId }: CustomerReservation
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
-  const loadReservations = useCallback(async () => {
-    setLoading(true);
-    setReservationsLoaded(false);
-    setError(null);
+  const loadReservations = useCallback(async (showLoading = true) => {
+    if (showLoading) {
+      setLoading(true);
+      setReservationsLoaded(false);
+      setError(null);
+    }
     try {
       const page = await getReservations(requestId);
       setReservations(page.items);
       setReservationsLoaded(true);
+      setError(null);
     } catch (requestError) {
       setError(toMessage(requestError));
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   }, [requestId]);
 
@@ -56,24 +58,32 @@ export function CustomerReservations({ requestId, quoteId }: CustomerReservation
   const activeReservation = reservations.find(
     (reservation) => ["CONFIRMED", "PENDING", "RESCHEDULE_REQUESTED"].includes(reservation.status),
   );
+  const canCancel = activeReservation ? canCustomerCancel(activeReservation) : false;
+  const technicianAccepted = activeReservation?.technicianAssignmentStatus
+    ? ACCEPTED_ASSIGNMENT_STATUSES.includes(activeReservation.technicianAssignmentStatus)
+    : false;
 
   useEffect(() => {
-    if (activeReservation) {
-      setForm({
-        startAt: toLocalDateTime(activeReservation.scheduledStartAt),
-        endAt: toLocalDateTime(activeReservation.scheduledEndAt),
-        memo: activeReservation.customerMemo ?? "",
-      });
-      setAvailability(null);
+    if (!activeReservation) return;
+    function refresh() {
+      if (document.visibilityState === "visible") void loadReservations(false);
     }
-  }, [activeReservation?.id, activeReservation?.scheduledStartAt, activeReservation?.scheduledEndAt]);
+    const intervalId = window.setInterval(refresh, 15_000);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, [activeReservation?.id, loadReservations]);
 
   function changeField<K extends keyof ScheduleForm>(key: K, value: ScheduleForm[K]) {
     setForm((current) => ({ ...current, [key]: value }));
     setAvailability(null);
     setError(null);
     setMessage(null);
-    if (!activeReservation) setIdempotencyKey(createIdempotencyKey());
+    setIdempotencyKey(createIdempotencyKey());
   }
 
   function scheduleInterval(): { scheduledStartAt: string; scheduledEndAt: string } | null {
@@ -97,7 +107,6 @@ export function CustomerReservations({ requestId, quoteId }: CustomerReservation
         requestId,
         interval.scheduledStartAt,
         interval.scheduledEndAt,
-        activeReservation?.id,
       );
       setAvailability(result.available);
       setMessage(result.available
@@ -122,19 +131,14 @@ export function CustomerReservations({ requestId, quoteId }: CustomerReservation
     setError(null);
     setMessage(null);
     try {
-      if (activeReservation) {
-        await rescheduleReservation(activeReservation.id, interval);
-        setMessage("예약 일정을 변경했습니다.");
-      } else {
-        await createReservation({
-          moveRequestId: requestId,
-          quoteId,
-          ...interval,
-          customerMemo: form.memo.trim() || undefined,
-        }, idempotencyKey);
-        setMessage("예약이 확정되었습니다.");
-        setIdempotencyKey(createIdempotencyKey());
-      }
+      await createReservation({
+        moveRequestId: requestId,
+        quoteId,
+        ...interval,
+        customerMemo: form.memo.trim() || undefined,
+      }, idempotencyKey);
+      setMessage("예약이 확정되었습니다.");
+      setIdempotencyKey(createIdempotencyKey());
       await loadReservations();
       setAvailability(null);
     } catch (requestError) {
@@ -145,7 +149,7 @@ export function CustomerReservations({ requestId, quoteId }: CustomerReservation
   }
 
   async function cancel() {
-    if (!activeReservation || !window.confirm("이 예약을 취소할까요?")) return;
+    if (!activeReservation || !canCancel || !window.confirm("이 예약을 취소할까요?")) return;
     setCancelling(true);
     setError(null);
     setMessage(null);
@@ -186,15 +190,29 @@ export function CustomerReservations({ requestId, quoteId }: CustomerReservation
           {reservations.length === 0 && (
             <p className="reservation-note">희망 시간대를 지정하고 가능 여부를 확인하면 예약이 즉시 확정됩니다.</p>
           )}
-          {activeReservation && activeReservation.status === "CONFIRMED"
-            && new Date(activeReservation.scheduledStartAt).getTime() <= Date.now() && (
-              <p className="reservation-note">예약 시작 후에는 고객 화면에서 변경하거나 취소할 수 없습니다.</p>
-            )}
-          {reservationsLoaded && (!activeReservation
-            || (activeReservation.status === "CONFIRMED" && isFuture(activeReservation.scheduledStartAt))) && (
+          {activeReservation?.status === "CONFIRMED" && (
+            <div className="reservation-confirmed">
+              <p className="reservation-note">
+                {technicianAccepted
+                  ? `${activeReservation.technicianName ? `${activeReservation.technicianName} 기사님이 ` : "기사님이 "}예약을 수락하여 취소할 수 없습니다.`
+                  : isFuture(activeReservation.scheduledStartAt)
+                    ? "예약이 확정되었습니다. 기사 수락 전까지만 취소할 수 있습니다."
+                    : "예약 시작 후에는 예약을 취소할 수 없습니다."}
+              </p>
+              <button
+                className="text-button reservation-cancel"
+                disabled={cancelling || !canCancel}
+                onClick={() => void cancel()}
+                type="button"
+              >
+                {cancelling ? "취소 중..." : "예약 취소"}
+              </button>
+            </div>
+          )}
+          {reservationsLoaded && !activeReservation && (
             <form className="reservation-form" onSubmit={(event) => void submitReservation(event)}>
               <label>
-                {activeReservation ? "변경할 시작 시각" : "예약 시작 시각"}
+                예약 시작 시각
                 <input
                   required
                   type="datetime-local"
@@ -203,7 +221,7 @@ export function CustomerReservations({ requestId, quoteId }: CustomerReservation
                 />
               </label>
               <label>
-                {activeReservation ? "변경할 종료 시각" : "예약 종료 시각"}
+                예약 종료 시각
                 <input
                   required
                   type="datetime-local"
@@ -211,17 +229,15 @@ export function CustomerReservations({ requestId, quoteId }: CustomerReservation
                   onChange={(event) => changeField("endAt", event.target.value)}
                 />
               </label>
-              {!activeReservation && (
-                <label>
-                  요청 메모 (선택)
-                  <textarea
-                    maxLength={2000}
-                    rows={2}
-                    value={form.memo}
-                    onChange={(event) => changeField("memo", event.target.value)}
-                  />
-                </label>
-              )}
+              <label>
+                요청 메모 (선택)
+                <textarea
+                  maxLength={2000}
+                  rows={2}
+                  value={form.memo}
+                  onChange={(event) => changeField("memo", event.target.value)}
+                />
+              </label>
               <div className="reservation-actions">
                 <button
                   className="secondary-button"
@@ -236,18 +252,8 @@ export function CustomerReservations({ requestId, quoteId }: CustomerReservation
                   disabled={saving || checking || availability !== true}
                   type="submit"
                 >
-                  {saving ? "저장 중..." : activeReservation ? "일정 변경" : "예약 확정"}
+                  {saving ? "저장 중..." : "예약 확정"}
                 </button>
-                {activeReservation?.status === "CONFIRMED" && isFuture(activeReservation.scheduledStartAt) && (
-                  <button
-                    className="text-button reservation-cancel"
-                    disabled={cancelling || saving}
-                    onClick={() => void cancel()}
-                    type="button"
-                  >
-                    {cancelling ? "취소 중..." : "예약 취소"}
-                  </button>
-                )}
               </div>
             </form>
           )}
@@ -278,6 +284,20 @@ function toLocalDateTime(value: string): string {
 
 function isFuture(value: string): boolean {
   return new Date(value).getTime() > Date.now();
+}
+
+const ACCEPTED_ASSIGNMENT_STATUSES: NonNullable<Reservation["technicianAssignmentStatus"]>[] = [
+  "ACCEPTED",
+  "ON_THE_WAY",
+  "WORK_STARTED",
+  "WORK_COMPLETED",
+];
+
+function canCustomerCancel(reservation: Reservation): boolean {
+  return reservation.status === "CONFIRMED"
+    && isFuture(reservation.scheduledStartAt)
+    && !(reservation.technicianAssignmentStatus
+      && ACCEPTED_ASSIGNMENT_STATUSES.includes(reservation.technicianAssignmentStatus));
 }
 
 function formatDateTime(value: string): string {

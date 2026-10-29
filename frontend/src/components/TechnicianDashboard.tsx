@@ -9,6 +9,7 @@ import {
   uploadAssignmentEvidence,
 } from "../api/installations";
 import { ApiError } from "../api/client";
+import { RequestPhotoGallery } from "./RequestPhotoGallery";
 import { TechnicianProfilePanel } from "./TechnicianProfilePanel";
 import type {
   TechnicianAssignment,
@@ -388,6 +389,10 @@ function TechnicianAssignmentCard({
           </div>
         )}
       </dl>
+
+      {assignment.status !== "REJECTED" && assignment.status !== "CANCELLED" && (
+        <RequestPhotoGallery moveRequestId={assignment.moveRequestId} />
+      )}
 
       <div className="technician-actions">
         {assignment.status === "PENDING" && (

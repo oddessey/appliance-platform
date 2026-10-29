@@ -6,6 +6,10 @@ import com.platform.auth.EmailAlreadyRegisteredException;
 import com.platform.auth.InvalidAdminBootstrapKeyException;
 import com.platform.installation.UnknownApplianceTypeException;
 import com.platform.installation.InvalidInstallationPageException;
+import com.platform.installation.InvalidMoveRequestImageException;
+import com.platform.installation.MoveRequestImageAssetNotFoundException;
+import com.platform.installation.MoveRequestImageNotFoundException;
+import com.platform.installation.MoveRequestImageStorageException;
 import com.platform.member.InvalidMemberRequestException;
 import com.platform.member.AccountManagementConflictException;
 import com.platform.member.MemberNotFoundException;
@@ -157,6 +161,35 @@ public class ApiExceptionHandler {
     public ResponseEntity<ApiErrorResponse> handleInvalidInstallationPage(HttpServletRequest request) {
         return response(request, HttpStatus.BAD_REQUEST, "INVALID_PAGE",
                 "페이지 번호 또는 페이지 크기가 올바르지 않습니다.", List.of());
+    }
+
+    @ExceptionHandler(MoveRequestImageNotFoundException.class)
+    public ResponseEntity<ApiErrorResponse> handleMoveRequestImageNotFound(HttpServletRequest request) {
+        return response(request, HttpStatus.NOT_FOUND, "MOVE_REQUEST_NOT_FOUND",
+                "설치 요청을 찾을 수 없습니다.", List.of());
+    }
+
+    @ExceptionHandler(MoveRequestImageAssetNotFoundException.class)
+    public ResponseEntity<ApiErrorResponse> handleMoveRequestImageAssetNotFound(HttpServletRequest request) {
+        return response(request, HttpStatus.NOT_FOUND, "MOVE_REQUEST_IMAGE_NOT_FOUND",
+                "요청 사진을 찾을 수 없습니다.", List.of());
+    }
+
+    @ExceptionHandler(InvalidMoveRequestImageException.class)
+    public ResponseEntity<ApiErrorResponse> handleInvalidMoveRequestImage(HttpServletRequest request) {
+        return response(request, HttpStatus.BAD_REQUEST, "INVALID_MOVE_REQUEST_IMAGE",
+                "요청을 처리할 수 없는 이미지입니다. JPEG, PNG 또는 WebP 형식의 10MB 이하 파일을 첨부해 주세요.",
+                List.of());
+    }
+
+    @ExceptionHandler(MoveRequestImageStorageException.class)
+    public ResponseEntity<ApiErrorResponse> handleMoveRequestImageStorage(
+            MoveRequestImageStorageException exception,
+            HttpServletRequest request
+    ) {
+        LOGGER.error("Unable to access move request image storage", exception);
+        return response(request, HttpStatus.INTERNAL_SERVER_ERROR, "MOVE_REQUEST_IMAGE_STORAGE_ERROR",
+                "요청 사진을 저장하거나 읽지 못했습니다.", List.of());
     }
 
     @ExceptionHandler(MemberNotFoundException.class)

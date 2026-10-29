@@ -350,6 +350,26 @@
   font-size: 11px;
 }
 
+.history-photo-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 14px;
+  padding: 0;
+  font-size: 12px;
+}
+
+.history-photo-toggle::after {
+  content: "›";
+  font-size: 15px;
+  line-height: 1;
+  transition: transform 0.15s ease;
+}
+
+.history-photo-toggle[aria-expanded="true"]::after {
+  transform: rotate(90deg);
+}
+
 .request-status {
   display: inline-flex;
   padding: 4px 8px;
@@ -2305,6 +2325,325 @@
   resize: vertical;
 }
 
+.request-photo-section {
+  display: grid;
+  gap: 11px;
+  padding: 15px;
+  border: 1px solid #e7eae5;
+  border-radius: 10px;
+  background: #fafbf9;
+}
+
+.request-photo-section-heading strong {
+  color: #35453c;
+  font-size: 12px;
+}
+
+.request-photo-section-heading strong small {
+  color: #858d87;
+  font-weight: 450;
+}
+
+.request-photo-section-heading p {
+  margin: 3px 0 0;
+  color: #858d87;
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.request-photo-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.request-photo-field {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  padding: 12px;
+  border: 1px dashed #d5dfd2;
+  border-radius: 9px;
+  background: #fff;
+}
+
+.request-photo-field-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.request-photo-field-heading strong {
+  color: #35453c;
+  font-size: 12px;
+}
+
+.request-photo-field-heading strong small {
+  color: #858d87;
+  font-weight: 450;
+}
+
+.request-photo-field-heading p {
+  margin: 4px 0 0;
+  color: #858d87;
+  font-size: 10.5px;
+  font-weight: 450;
+  line-height: 1.5;
+}
+
+.request-photo-count {
+  flex: none;
+  color: #4f806d;
+  font-size: 10.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.request-photo-picker-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.form-stack .request-photo-picker {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid #cfe0d4;
+  border-radius: 8px;
+  background: #f1f8f2;
+  color: #245c49;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.form-stack .request-photo-picker:hover {
+  background: #e7f3e9;
+}
+
+.form-stack .request-photo-picker.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.form-stack .request-photo-picker input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  opacity: 0;
+}
+
+.request-photo-hint {
+  color: #959d97;
+  font-size: 10px;
+}
+
+.request-photo-empty {
+  margin: 0;
+  color: #959d97;
+  font-size: 11px;
+}
+
+.request-photo-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.request-photo-item {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  border: 1px solid #edf0eb;
+  border-radius: 7px;
+  background: #fbfcfa;
+}
+
+.request-photo-thumb {
+  width: 40px;
+  height: 40px;
+  overflow: hidden;
+  border-radius: 6px;
+  background: #eef2ec;
+}
+
+.request-photo-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.request-photo-file {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.request-photo-file strong {
+  overflow: hidden;
+  color: #35453c;
+  font-size: 10.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.request-photo-file span {
+  color: #959d97;
+  font-size: 10px;
+}
+
+.request-photo-remove {
+  padding: 4px;
+  border: 0;
+  background: transparent;
+  color: #a94737;
+  cursor: pointer;
+  font: inherit;
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+.request-photo-remove:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.request-photo-gallery {
+  display: grid;
+  gap: 10px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid #eaebe7;
+}
+
+.request-photo-gallery-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.request-photo-gallery-heading strong {
+  color: #35453c;
+  font-size: 12px;
+}
+
+.request-photo-gallery-heading p {
+  margin: 3px 0 0;
+  color: #858d87;
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+
+.request-photo-gallery-heading > span {
+  flex: none;
+  color: #4f806d;
+  font-size: 10.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.request-photo-gallery-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.request-photo-gallery-item {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  padding: 7px;
+  border: 1px solid #edf0eb;
+  border-radius: 8px;
+  background: #fbfcfa;
+}
+
+.request-photo-gallery-thumb {
+  display: block;
+  width: 64px;
+  height: 64px;
+  overflow: hidden;
+  border-radius: 7px;
+  background: #eef2ec;
+}
+
+.request-photo-gallery-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.request-photo-gallery-thumb.is-unavailable {
+  display: grid;
+  place-items: center;
+  padding: 4px;
+  color: #858d87;
+  font-size: 9.5px;
+  line-height: 1.3;
+  text-align: center;
+}
+
+.request-photo-gallery-meta {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.request-photo-gallery-meta strong {
+  overflow: hidden;
+  color: #35453c;
+  font-size: 10.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.request-photo-gallery-meta span,
+.request-photo-gallery-meta time {
+  color: #959d97;
+  font-size: 10px;
+}
+
+.request-photo-gallery-empty {
+  margin: 0;
+  color: #959d97;
+  font-size: 11px;
+}
+
+.request-photo-gallery-error {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.request-photo-gallery-error .inline-error {
+  margin: 0;
+}
+
+.photo-upload-warning {
+  color: #a94737;
+}
+
 .customer-quotes {
   margin-top: 14px;
   padding-top: 12px;
@@ -2641,7 +2980,9 @@
 
 @media (max-width: 760px) {
   .installation-condition-grid,
-  .price-rule-grid {
+  .price-rule-grid,
+  .request-photo-grid,
+  .request-photo-gallery-list {
     grid-template-columns: 1fr;
   }
 
@@ -2771,6 +3112,18 @@
 
 .reservation-note {
   margin: 0;
+}
+
+.reservation-confirmed {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.reservation-confirmed .reservation-cancel {
+  justify-self: start;
+  padding: 0;
+  font-size: 12px;
 }
 
 .reservation-admin-list {
@@ -3313,6 +3666,23 @@
   min-height: 44px;
   border-radius: 10px;
   font-size: 13px;
+}
+
+.customer-app-content .request-photo-section {
+  gap: 9px;
+  padding: 14px;
+  border-radius: 14px;
+}
+
+.customer-app-content .request-photo-field {
+  padding: 11px;
+  border-radius: 12px;
+}
+
+.customer-app-content .form-stack .request-photo-picker {
+  min-height: 38px;
+  border-radius: 10px;
+  font-size: 12px;
 }
 
 .customer-app-content .primary-button {

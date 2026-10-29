@@ -37,6 +37,16 @@ D:\smartmove-ai\appliance-platform\backend\src\main\java\com\platform\installati
 D:\smartmove-ai\appliance-platform\backend\src\main\java\com\platform\installation\InstallationResponse.java
 D:\smartmove-ai\appliance-platform\backend\src\main\java\com\platform\installation\InstallationService.java
 D:\smartmove-ai\appliance-platform\backend\src\main\java\com\platform\installation\InvalidInstallationPageException.java
+D:\smartmove-ai\appliance-platform\backend\src\main\java\com\platform\installation\InvalidMoveRequestImageException.java
+D:\smartmove-ai\appliance-platform\backend\src\main\java\com\platform\installation\MoveRequestImageAssetNotFoundException.java
+D:\smartmove-ai\appliance-platform\backend\src\main\java\com\platform\installation\MoveRequestImageController.java
+D:\smartmove-ai\appliance-platform\backend\src\main\java\com\platform\installation\MoveRequestImageFile.java
+D:\smartmove-ai\appliance-platform\backend\src\main\java\com\platform\installation\MoveRequestImageNotFoundException.java
+D:\smartmove-ai\appliance-platform\backend\src\main\java\com\platform\installation\MoveRequestImagePurpose.java
+D:\smartmove-ai\appliance-platform\backend\src\main\java\com\platform\installation\MoveRequestImageRepository.java
+D:\smartmove-ai\appliance-platform\backend\src\main\java\com\platform\installation\MoveRequestImageResponse.java
+D:\smartmove-ai\appliance-platform\backend\src\main\java\com\platform\installation\MoveRequestImageService.java
+D:\smartmove-ai\appliance-platform\backend\src\main\java\com\platform\installation\MoveRequestImageStorageException.java
 D:\smartmove-ai\appliance-platform\backend\src\main\java\com\platform\installation\UnknownApplianceTypeException.java
 D:\smartmove-ai\appliance-platform\backend\src\main\java\com\platform\member\AccountManagementConflictException.java
 D:\smartmove-ai\appliance-platform\backend\src\main\java\com\platform\member\AccountPageResponse.java

@@ -66,6 +66,11 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/v1/technicians/**", "/api/v1/assignments/**").hasRole("TECHNICIAN")
                         .requestMatchers("/api/v1/installations/**").hasRole("CUSTOMER")
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/v1/move-requests/*/images",
+                                "/api/v1/move-requests/*/images/*")
+                        .hasAnyRole("CUSTOMER", "ADMIN", "TECHNICIAN")
+                        .requestMatchers("/api/v1/move-requests/**").hasAnyRole("CUSTOMER", "ADMIN")
                         .requestMatchers("/api/v1/reservations/**").hasRole("CUSTOMER")
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(resourceServer -> resourceServer

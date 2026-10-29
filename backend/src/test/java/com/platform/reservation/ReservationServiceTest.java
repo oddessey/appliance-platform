@@ -157,6 +157,22 @@ class ReservationServiceTest {
     }
 
     @Test
+    void doesNotCancelReservationAfterTechnicianAccepted() {
+        UUID customerId = UUID.randomUUID();
+        UUID reservationId = UUID.randomUUID();
+        UUID requestId = UUID.randomUUID();
+        OffsetDateTime startAt = futureStart();
+        when(repository.lockReservation(reservationId, customerId)).thenReturn(Optional.of(
+                new ReservationState(requestId, "CONFIRMED", startAt, startAt.plusHours(2), customerId)));
+        when(repository.hasAcceptedAssignment(reservationId)).thenReturn(true);
+
+        assertThrows(ReservationNotAcceptableException.class,
+                () -> service.cancelCustomerReservation(reservationId, customerId));
+        verify(repository, never()).cancelReservation(any());
+        verify(repository, never()).cancelOpenAssignments(any(), any(), any());
+    }
+
+    @Test
     void cancelsReservationAndOpenTechnicianAssignmentsTogether() {
         UUID customerId = UUID.randomUUID();
         UUID reservationId = UUID.randomUUID();

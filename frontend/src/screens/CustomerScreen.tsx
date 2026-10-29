@@ -1,12 +1,39 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import { createInstallation, getApplianceTypes } from "../api/installations";
+import { createInstallation, getApplianceTypes, uploadMoveRequestImage } from "../api/installations";
 import { ApiError } from "../api/client";
 import { AddressSearchInput } from "../components/AddressSearchInput";
 import { CustomerQuoteLookup } from "../components/CustomerQuoteLookup";
 import { DesiredDateTimeInput } from "../components/DesiredDateTimeInput";
 import { InstallationHistory } from "../components/InstallationHistory";
-import type { ApplianceType, InstallationResponse } from "../types/installation";
+import { RequestPhotoField } from "../components/RequestPhotoField";
+import { RequestPhotoGallery } from "../components/RequestPhotoGallery";
+import type {
+  ApplianceType,
+  InstallationResponse,
+  MoveRequestImagePurpose,
+} from "../types/installation";
+
+const MAX_PHOTO_COUNT = 5;
+const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
+const ALLOWED_PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const PHOTO_TYPE_BY_EXTENSION: Record<string, string> = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+};
+
+interface PhotoUploadSummary {
+  uploaded: number;
+  failed: number;
+  failures: string[];
+}
+
+interface PhotoUploadProgress {
+  completed: number;
+  total: number;
+}
 
 interface CustomerScreenProps {
   showHistory: boolean;
@@ -24,6 +51,11 @@ export function CustomerScreen({ showHistory, onViewHistory, onViewHome }: Custo
   const [success, setSuccess] = useState<InstallationResponse | null>(null);
   const [showAdditionalPrompt, setShowAdditionalPrompt] = useState(false);
   const [formGeneration, setFormGeneration] = useState(0);
+  const [appliancePhotos, setAppliancePhotos] = useState<File[]>([]);
+  const [installationPhotos, setInstallationPhotos] = useState<File[]>([]);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const [photoProgress, setPhotoProgress] = useState<PhotoUploadProgress | null>(null);
+  const [photoUploadSummary, setPhotoUploadSummary] = useState<PhotoUploadSummary | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -44,10 +76,46 @@ export function CustomerScreen({ showHistory, onViewHistory, onViewHome }: Custo
     };
   }, [retryCount]);
 
+  function addPhotos(purpose: MoveRequestImagePurpose, selected: File[]) {
+    setPhotoError(null);
+    const normalized = selected.map(normalizePhotoFile);
+    for (const file of normalized) {
+      const validationError = validatePhotoFile(file);
+      if (validationError) {
+        setPhotoError(validationError);
+        return;
+      }
+    }
+
+    const current = purpose === "APPLIANCE" ? appliancePhotos : installationPhotos;
+    if (current.length + normalized.length > MAX_PHOTO_COUNT) {
+      setPhotoError(`사진은 종류별 최대 ${MAX_PHOTO_COUNT}장까지 첨부할 수 있습니다.`);
+      return;
+    }
+
+    if (purpose === "APPLIANCE") {
+      setAppliancePhotos([...current, ...normalized]);
+    } else {
+      setInstallationPhotos([...current, ...normalized]);
+    }
+  }
+
+  function removePhoto(purpose: MoveRequestImagePurpose, index: number) {
+    setPhotoError(null);
+    if (purpose === "APPLIANCE") {
+      setAppliancePhotos((files) => files.filter((_, fileIndex) => fileIndex !== index));
+    } else {
+      setInstallationPhotos((files) => files.filter((_, fileIndex) => fileIndex !== index));
+    }
+  }
+
   async function submitInstallation(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
     setSuccess(null);
+    setPhotoError(null);
+    setPhotoUploadSummary(null);
+    setPhotoProgress(null);
     const formElement = event.currentTarget;
     const form = new FormData(formElement);
     const originAddress = String(form.get("originAddress") ?? "").trim();
@@ -63,6 +131,18 @@ export function CustomerScreen({ showHistory, onViewHistory, onViewHome }: Custo
       return;
     }
 
+    const photosToUpload: Array<{ file: File; purpose: MoveRequestImagePurpose }> = [
+      ...appliancePhotos.map((file) => ({ file, purpose: "APPLIANCE" as const })),
+      ...installationPhotos.map((file) => ({ file, purpose: "INSTALLATION_ENV" as const })),
+    ];
+    for (const photo of photosToUpload) {
+      const validationError = validatePhotoFile(photo.file);
+      if (validationError) {
+        setPhotoError(validationError);
+        return;
+      }
+    }
+
     setRequestLoading(true);
     try {
       const response = await createInstallation({
@@ -74,14 +154,36 @@ export function CustomerScreen({ showHistory, onViewHistory, onViewHome }: Custo
         floorCount: Number(form.get("floorCount") ?? 0),
         additionalPipingMeters: Number(form.get("additionalPipingMeters") ?? 0),
       });
+
+      let uploaded = 0;
+      const failures: string[] = [];
+      if (photosToUpload.length > 0) {
+        setPhotoProgress({ completed: 0, total: photosToUpload.length });
+        for (let index = 0; index < photosToUpload.length; index += 1) {
+          const photo = photosToUpload[index];
+          try {
+            await uploadMoveRequestImage(response.id, photo.file, photo.purpose);
+            uploaded += 1;
+          } catch (uploadError) {
+            failures.push(`${photo.file.name}: ${toMessage(uploadError)}`);
+          } finally {
+            setPhotoProgress({ completed: index + 1, total: photosToUpload.length });
+          }
+        }
+        setPhotoUploadSummary({ uploaded, failed: failures.length, failures });
+      }
+
       setSuccess(response);
       setShowAdditionalPrompt(true);
       setFormGeneration((generation) => generation + 1);
+      setAppliancePhotos([]);
+      setInstallationPhotos([]);
       formElement.reset();
     } catch (requestError) {
       setError(toMessage(requestError));
     } finally {
       setRequestLoading(false);
+      setPhotoProgress(null);
     }
   }
 
@@ -144,6 +246,33 @@ export function CustomerScreen({ showHistory, onViewHistory, onViewHome }: Custo
           <AddressSearchInput label="이전 주소" name="originAddress" />
           <AddressSearchInput label="설치 주소" name="destinationAddress" />
           <DesiredDateTimeInput name="desiredStartAt" />
+          <div className="request-photo-section">
+            <div className="request-photo-section-heading">
+              <strong>사진 첨부 <small>(선택)</small></strong>
+              <p>제품 상태와 설치 환경을 미리 보여주시면 더 정확한 상담이 가능합니다.</p>
+            </div>
+            <div className="request-photo-grid">
+              <RequestPhotoField
+                description="이전할 제품 전체가 보이도록 촬영해 주세요."
+                disabled={requestLoading}
+                files={appliancePhotos}
+                label="제품 사진"
+                maxFiles={MAX_PHOTO_COUNT}
+                onFilesSelected={(files) => addPhotos("APPLIANCE", files)}
+                onRemove={(index) => removePhoto("APPLIANCE", index)}
+              />
+              <RequestPhotoField
+                description="설치 위치와 배관·전원 주변을 촬영해 주세요."
+                disabled={requestLoading}
+                files={installationPhotos}
+                label="설치 환경 사진"
+                maxFiles={MAX_PHOTO_COUNT}
+                onFilesSelected={(files) => addPhotos("INSTALLATION_ENV", files)}
+                onRemove={(index) => removePhoto("INSTALLATION_ENV", index)}
+              />
+            </div>
+            {photoError && <p className="form-error" role="alert">{photoError}</p>}
+          </div>
           <div className="installation-conditions">
             <strong>추가 작업 조건 <small>(선택)</small></strong>
             <p>입력한 조건은 관리자가 발행하는 견적 산출에 사용됩니다.</p>
@@ -175,6 +304,15 @@ export function CustomerScreen({ showHistory, onViewHistory, onViewHome }: Custo
             <div className="success-message" role="status">
               <strong>설치 요청이 접수되었습니다.</strong>
               <span>요청 번호: {success.requestNo}</span>
+              {photoUploadSummary && photoUploadSummary.uploaded > 0 && (
+                <span>사진 {photoUploadSummary.uploaded}장이 첨부되었습니다.</span>
+              )}
+              {photoUploadSummary && photoUploadSummary.failed > 0 && (
+                <span className="photo-upload-warning">
+                  사진 {photoUploadSummary.failed}장을 첨부하지 못했습니다. {photoUploadSummary.failures[0]}
+                  {photoUploadSummary.failed > 1 ? ` 외 ${photoUploadSummary.failed - 1}건` : ""}
+                </span>
+              )}
             </div>
           )}
           <button
@@ -182,7 +320,11 @@ export function CustomerScreen({ showHistory, onViewHistory, onViewHome }: Custo
             disabled={requestLoading || typesLoading || applianceTypes.length === 0}
             type="submit"
           >
-            {requestLoading ? "요청을 접수하고 있어요..." : "설치 요청 접수"}
+            {requestLoading
+              ? photoProgress
+                ? `사진 첨부 중... (${photoProgress.completed}/${photoProgress.total})`
+                : "요청을 접수하고 있어요..."
+              : "설치 요청 접수"}
             {!requestLoading && <span aria-hidden="true">→</span>}
           </button>
           <p className="privacy-note">입력하신 정보는 설치 상담과 서비스 제공을 위해 사용됩니다.</p>
@@ -204,8 +346,19 @@ export function CustomerScreen({ showHistory, onViewHistory, onViewHome }: Custo
               <span className="step-label">REQUEST RECEIVED</span>
               <h2 id="additional-request-title">설치 요청이 접수되었습니다.</h2>
               <p>요청 번호: {success.requestNo}</p>
+              {photoUploadSummary && photoUploadSummary.failed > 0 && (
+                <p className="inline-error">
+                  사진 {photoUploadSummary.failed}장을 첨부하지 못했습니다. 접수 내역에서 요청 상태를 확인해 주세요.
+                </p>
+              )}
               <p>추가로 설치 요청을 접수하시겠습니까?</p>
             </div>
+            <RequestPhotoGallery
+              description="접수한 요청에 첨부된 사진과 파일 정보를 확인할 수 있습니다."
+              emptyMessage="첨부한 사진이 없습니다."
+              moveRequestId={success.id}
+              title="첨부한 사진"
+            />
             <div className="additional-request-actions">
               <button
                 className="primary-button"
@@ -213,6 +366,8 @@ export function CustomerScreen({ showHistory, onViewHistory, onViewHome }: Custo
                   setShowAdditionalPrompt(false);
                   setSuccess(null);
                   setError(null);
+                  setPhotoError(null);
+                  setPhotoUploadSummary(null);
                 }}
                 type="button"
               >
@@ -252,6 +407,31 @@ function CustomerInformationPanel() {
       </div>
     </aside>
   );
+}
+
+function normalizePhotoFile(file: File): File {
+  const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
+  const inferredType = PHOTO_TYPE_BY_EXTENSION[extension];
+  const type = file.type === "image/jpg"
+    ? "image/jpeg"
+    : file.type && file.type !== "application/octet-stream"
+      ? file.type
+      : inferredType ?? file.type;
+  if (!type || type === file.type) return file;
+  return new File([file], file.name, { type, lastModified: file.lastModified });
+}
+
+function validatePhotoFile(file: File): string | null {
+  if (file.size === 0) {
+    return `${file.name}: 빈 파일은 첨부할 수 없습니다.`;
+  }
+  if (file.size > MAX_PHOTO_BYTES) {
+    return `${file.name}: 사진은 장당 10MB 이하만 첨부할 수 있습니다.`;
+  }
+  if (!ALLOWED_PHOTO_TYPES.has(file.type)) {
+    return `${file.name}: JPEG, PNG, WebP 이미지만 첨부할 수 있습니다.`;
+  }
+  return null;
 }
 
 function toMessage(error: unknown): string {

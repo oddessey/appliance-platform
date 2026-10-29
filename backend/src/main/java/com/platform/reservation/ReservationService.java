@@ -248,6 +248,9 @@ public class ReservationService {
         if (!"CONFIRMED".equals(state.status())) {
             throw new ReservationNotAcceptableException();
         }
+        if (!admin && repository.hasAcceptedAssignment(reservationId)) {
+            throw new ReservationNotAcceptableException();
+        }
         if (repository.hasWorkStartedAssignment(reservationId)) {
             throw new ReservationNotAcceptableException();
         }

@@ -1,2 +1,12 @@
+com\platform\installation\MoveRequestImagePurpose.class
+com\platform\installation\MoveRequestImageStorageException.class
+com\platform\installation\MoveRequestImageResponse.class
 com\platform\pricing\PricingService$1.class
+com\platform\installation\MoveRequestImageAssetNotFoundException.class
+com\platform\installation\MoveRequestImageNotFoundException.class
+com\platform\installation\MoveRequestImageRepository.class
+com\platform\installation\InvalidMoveRequestImageException.class
+com\platform\installation\MoveRequestImageFile.class
+com\platform\installation\MoveRequestImageController.class
 com\platform\technician\TechnicianService$1.class
+com\platform\installation\MoveRequestImageService.class

@@ -334,7 +334,8 @@ public class TechnicianAdminRepository {
 
     public Optional<TechnicianAssignmentResponse> findAssignment(UUID assignmentId) {
         return jdbcTemplate.query("""
-                SELECT ta.id, ta.status, r.reservation_no, r.scheduled_start_at, r.scheduled_end_at,
+                SELECT ta.id, r.move_request_id, ta.status, r.reservation_no,
+                       r.scheduled_start_at, r.scheduled_end_at,
                        customer.name AS customer_name, customer.phone AS customer_phone,
                        mr.origin_address, mr.destination_address,
                        string_agg(DISTINCT appliance_type.name, ', ' ORDER BY appliance_type.name)
@@ -348,13 +349,15 @@ public class TechnicianAdminRepository {
                 JOIN move_item mi ON mi.move_request_id = mr.id
                 JOIN appliance_type ON appliance_type.id = mi.appliance_type_id
                 WHERE ta.id = ?
-                GROUP BY ta.id, ta.status, r.reservation_no, r.scheduled_start_at,
-                         r.scheduled_end_at, customer.name, customer.phone,
-                         mr.origin_address, mr.destination_address, mr.customer_memo,
-                         quote.quote_no, quote.total_amount
+                GROUP BY ta.id, r.move_request_id, ta.status, r.reservation_no,
+                         r.scheduled_start_at, r.scheduled_end_at, customer.name,
+                         customer.phone, mr.origin_address, mr.destination_address,
+                         mr.customer_memo, quote.quote_no, quote.total_amount
                 """, resultSet -> resultSet.next()
                 ? Optional.of(new TechnicianAssignmentResponse(
-                resultSet.getObject("id", UUID.class), resultSet.getString("status"),
+                resultSet.getObject("id", UUID.class),
+                resultSet.getObject("move_request_id", UUID.class),
+                resultSet.getString("status"),
                 resultSet.getString("reservation_no"),
                 resultSet.getObject("scheduled_start_at", java.time.OffsetDateTime.class),
                 resultSet.getObject("scheduled_end_at", java.time.OffsetDateTime.class),

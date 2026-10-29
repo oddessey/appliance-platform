@@ -36,8 +36,9 @@ class TechnicianAdminServiceTest {
                 new TechnicianCandidateResponse(profileId, "기사", "사업자", "01012345678", 0)));
         when(repository.createAssignment(reservationId, profileId, actorId, "MANUAL")).thenReturn(assignmentId);
         TechnicianAssignmentResponse assignment = new TechnicianAssignmentResponse(
-                assignmentId, "PENDING", "RSV-001", OffsetDateTime.now(), OffsetDateTime.now().plusHours(2),
-                "고객", "01012345678", "출발", "도착", "세탁기", null);
+                assignmentId, UUID.randomUUID(), "PENDING", "RSV-001", OffsetDateTime.now(),
+                OffsetDateTime.now().plusHours(2), "고객", "01012345678", "출발", "도착",
+                "세탁기", null, null, null);
         when(repository.findAssignment(assignmentId)).thenReturn(Optional.of(assignment));
 
         assertEquals(assignment, service.assign(reservationId, profileId, actorId));

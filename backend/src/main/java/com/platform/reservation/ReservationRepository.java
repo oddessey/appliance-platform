@@ -285,6 +285,17 @@ public class ReservationRepository {
         return Boolean.TRUE.equals(exists);
     }
 
+    public boolean hasAcceptedAssignment(UUID reservationId) {
+        Boolean exists = jdbcTemplate.queryForObject("""
+                SELECT EXISTS (
+                    SELECT 1 FROM technician_assignment
+                    WHERE reservation_id = ?
+                      AND status IN ('ACCEPTED', 'ON_THE_WAY', 'WORK_STARTED', 'WORK_COMPLETED')
+                )
+                """, Boolean.class, reservationId);
+        return Boolean.TRUE.equals(exists);
+    }
+
     public void cancelOpenAssignments(UUID reservationId, UUID actorId, String reason) {
         List<UUID> assignmentIds = jdbcTemplate.query("""
                 UPDATE technician_assignment

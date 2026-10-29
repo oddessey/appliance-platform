@@ -20,6 +20,19 @@ export interface InstallationResponse {
   createdAt: string;
 }
 
+export type MoveRequestImagePurpose = "APPLIANCE" | "INSTALLATION_ENV";
+
+export interface MoveRequestImage {
+  id: string;
+  moveRequestId: string;
+  moveItemId: string | null;
+  purpose: MoveRequestImagePurpose;
+  originalFilename: string;
+  contentType: string;
+  sizeBytes: number;
+  uploadedAt: string;
+}
+
 export interface InstallationHistoryItem extends InstallationResponse {
   applianceTypeCode: string;
   applianceTypeName: string;
@@ -86,6 +99,7 @@ export type TechnicianAssignmentStatus =
 
 export interface TechnicianAssignment {
   id: string;
+  moveRequestId: string;
   status: TechnicianAssignmentStatus;
   reservationNo: string;
   scheduledStartAt: string;

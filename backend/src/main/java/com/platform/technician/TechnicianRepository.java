@@ -33,7 +33,8 @@ public class TechnicianRepository {
             int offset
     ) {
         return jdbcTemplate.query("""
-                SELECT ta.id, ta.status, r.reservation_no, r.scheduled_start_at, r.scheduled_end_at,
+                SELECT ta.id, r.move_request_id, ta.status, r.reservation_no,
+                       r.scheduled_start_at, r.scheduled_end_at,
                        customer.name AS customer_name, customer.phone AS customer_phone,
                        mr.origin_address, mr.destination_address,
                        string_agg(DISTINCT appliance_type.name, ', ' ORDER BY appliance_type.name)
@@ -48,14 +49,15 @@ public class TechnicianRepository {
                 JOIN appliance_type ON appliance_type.id = mi.appliance_type_id
                 WHERE ta.technician_id = ?
                   AND (?::varchar IS NULL OR ta.status = ?)
-                GROUP BY ta.id, ta.status, r.reservation_no, r.scheduled_start_at,
-                         r.scheduled_end_at, customer.name, customer.phone,
-                         mr.origin_address, mr.destination_address, mr.customer_memo,
-                         quote.quote_no, quote.total_amount
+                GROUP BY ta.id, r.move_request_id, ta.status, r.reservation_no,
+                         r.scheduled_start_at, r.scheduled_end_at, customer.name,
+                         customer.phone, mr.origin_address, mr.destination_address,
+                         mr.customer_memo, quote.quote_no, quote.total_amount
                 ORDER BY r.scheduled_start_at, ta.assigned_at DESC
                 LIMIT ? OFFSET ?
                 """, (resultSet, rowNumber) -> new TechnicianAssignmentResponse(
                 resultSet.getObject("id", UUID.class),
+                resultSet.getObject("move_request_id", UUID.class),
                 resultSet.getString("status"),
                 resultSet.getString("reservation_no"),
                 resultSet.getObject("scheduled_start_at", java.time.OffsetDateTime.class),
@@ -118,7 +120,8 @@ public class TechnicianRepository {
 
     public TechnicianAssignmentResponse findAssignment(UUID assignmentId, UUID profileId) {
         return jdbcTemplate.query("""
-                SELECT ta.id, ta.status, r.reservation_no, r.scheduled_start_at, r.scheduled_end_at,
+                SELECT ta.id, r.move_request_id, ta.status, r.reservation_no,
+                       r.scheduled_start_at, r.scheduled_end_at,
                        customer.name AS customer_name, customer.phone AS customer_phone,
                        mr.origin_address, mr.destination_address,
                        string_agg(DISTINCT appliance_type.name, ', ' ORDER BY appliance_type.name)
@@ -132,16 +135,17 @@ public class TechnicianRepository {
                 JOIN move_item mi ON mi.move_request_id = mr.id
                 JOIN appliance_type ON appliance_type.id = mi.appliance_type_id
                 WHERE ta.id = ? AND ta.technician_id = ?
-                GROUP BY ta.id, ta.status, r.reservation_no, r.scheduled_start_at,
-                         r.scheduled_end_at, customer.name, customer.phone,
-                         mr.origin_address, mr.destination_address, mr.customer_memo,
-                         quote.quote_no, quote.total_amount
+                GROUP BY ta.id, r.move_request_id, ta.status, r.reservation_no,
+                         r.scheduled_start_at, r.scheduled_end_at, customer.name,
+                         customer.phone, mr.origin_address, mr.destination_address,
+                         mr.customer_memo, quote.quote_no, quote.total_amount
                 """, resultSet -> {
             if (!resultSet.next()) {
                 throw new AssignmentNotFoundException();
             }
             return new TechnicianAssignmentResponse(
                     resultSet.getObject("id", UUID.class),
+                    resultSet.getObject("move_request_id", UUID.class),
                     resultSet.getString("status"),
                     resultSet.getString("reservation_no"),
                     resultSet.getObject("scheduled_start_at", java.time.OffsetDateTime.class),

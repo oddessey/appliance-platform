@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { getInstallations } from "../api/installations";
 import { CustomerQuotes } from "./CustomerQuotes";
+import { RequestPhotoGallery } from "./RequestPhotoGallery";
 import { ApiError } from "../api/client";
 import type { InstallationHistoryItem } from "../types/installation";
 
@@ -14,10 +15,12 @@ export function InstallationHistory({ onCreateAnother }: InstallationHistoryProp
   const [totalElements, setTotalElements] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [expandedPhotoId, setExpandedPhotoId] = useState<string | null>(null);
 
   const loadPage = useCallback(async (pageToLoad: number) => {
     setLoading(true);
     setError(null);
+    setExpandedPhotoId(null);
     try {
       const result = await getInstallations(pageToLoad);
       setItems(result.content);
@@ -93,6 +96,25 @@ export function InstallationHistory({ onCreateAnother }: InstallationHistoryProp
                     <dd>{formatDateTime(item.createdAt)}</dd>
                   </div>
                 </dl>
+                <button
+                  aria-controls={`request-photos-${item.id}`}
+                  aria-expanded={expandedPhotoId === item.id}
+                  className="text-button history-photo-toggle"
+                  onClick={() => setExpandedPhotoId((current) => current === item.id ? null : item.id)}
+                  type="button"
+                >
+                  {expandedPhotoId === item.id ? "첨부 사진 접기" : "첨부 사진 확인"}
+                </button>
+                {expandedPhotoId === item.id && (
+                  <div id={`request-photos-${item.id}`}>
+                    <RequestPhotoGallery
+                      description="접수한 요청에 첨부된 사진과 파일 정보입니다."
+                      emptyMessage="첨부한 사진이 없습니다."
+                      moveRequestId={item.id}
+                      title="첨부 사진"
+                    />
+                  </div>
+                )}
                 <CustomerQuotes requestId={item.id} />
               </article>
             ))}
