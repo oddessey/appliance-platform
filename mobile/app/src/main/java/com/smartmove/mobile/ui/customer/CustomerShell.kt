@@ -728,33 +728,27 @@ private fun CustomerRequestDetailSheet(
             Spacer(Modifier.height(10.dp))
 
             val activeReservation = state.activeReservation
-            val editableReservation = state.editableReservation
             if (activeReservation != null) {
                 ReservationCard(
                     reservation = activeReservation,
                     busy = state.busy,
-                    canCancel = editableReservation != null,
+                    canCancel = state.cancellableReservation != null,
                     onCancel = { reservationToCancel = activeReservation },
                 )
                 Spacer(Modifier.height(12.dp))
-            }
-
-            if (!state.loading && state.acceptedQuote == null && activeReservation == null) {
-                InfoBanner(
-                    message = "견적을 수락하면 방문 예약을 진행할 수 있습니다.",
-                    tone = StatusTone.Warning,
-                )
-            } else if (!state.loading && editableReservation != null) {
-                ReservationScheduleForm(
-                    state = state,
-                    viewModel = viewModel,
-                    activeReservation = editableReservation,
-                )
-            } else if (!state.loading && activeReservation != null) {
-                InfoBanner(
-                    message = "현재 예약 상태에서는 일정 변경이나 취소를 할 수 없습니다. 관리자에게 문의해 주세요.",
-                    tone = StatusTone.Warning,
-                )
+            } else if (!state.loading) {
+                if (state.acceptedQuote == null) {
+                    InfoBanner(
+                        message = "견적을 수락하면 방문 예약을 진행할 수 있습니다.",
+                        tone = StatusTone.Warning,
+                    )
+                } else {
+                    ReservationScheduleForm(
+                        state = state,
+                        viewModel = viewModel,
+                        activeReservation = null,
+                    )
+                }
             }
         }
     }
@@ -957,9 +951,20 @@ private fun ReservationCard(
             Text("예약 취소")
         }
         if (!canCancel) {
+            val technicianAccepted = reservation.technicianAssignmentStatus
+                ?.let { it in ACCEPTED_TECHNICIAN_ASSIGNMENT_STATUSES } == true
             Spacer(Modifier.height(6.dp))
             Text(
-                text = "현재 예약 상태에서는 예약을 취소할 수 없습니다.",
+                text = when {
+                    technicianAccepted && !reservation.technicianName.isNullOrBlank() ->
+                        "${reservation.technicianName} 기사님이 예약을 수락하여 취소할 수 없습니다."
+                    technicianAccepted ->
+                        "기사님이 예약을 수락하여 취소할 수 없습니다."
+                    !DateTimes.isFuture(reservation.scheduledStartAt) ->
+                        "예약 시작 후에는 예약을 취소할 수 없습니다."
+                    else ->
+                        "현재 예약 상태에서는 예약을 취소할 수 없습니다."
+                },
                 style = MaterialTheme.typography.bodySmall,
                 color = InkMuted,
             )

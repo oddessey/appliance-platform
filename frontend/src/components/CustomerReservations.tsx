@@ -149,18 +149,32 @@ export function CustomerReservations({ requestId, quoteId }: CustomerReservation
   }
 
   async function cancel() {
-    if (!activeReservation || !canCancel || !window.confirm("이 예약을 취소할까요?")) return;
+    if (!activeReservation || !canCancel || cancelling) return;
     setCancelling(true);
     setError(null);
     setMessage(null);
     try {
-      await cancelReservation(activeReservation.id);
+      const page = await getReservations(requestId);
+      setReservations(page.items);
+      const latest = page.items.find((reservation) => reservation.id === activeReservation.id);
+      if (!latest) {
+        setError("예약을 찾을 수 없습니다. 예약 내역을 다시 확인해 주세요.");
+        return;
+      }
+      if (!canCustomerCancel(latest)) {
+        setError(cancellationBlockedMessage(latest));
+        return;
+      }
+      if (!window.confirm("이 예약을 취소할까요?")) return;
+      await cancelReservation(latest.id);
       setMessage("예약을 취소했습니다. 수락한 견적으로 다시 예약할 수 있습니다.");
       setAvailability(null);
       setIdempotencyKey(createIdempotencyKey());
       await loadReservations();
     } catch (requestError) {
-      setError(toMessage(requestError));
+      const message = toMessage(requestError);
+      await loadReservations(false);
+      setError(message);
     } finally {
       setCancelling(false);
     }
@@ -298,6 +312,22 @@ function canCustomerCancel(reservation: Reservation): boolean {
     && isFuture(reservation.scheduledStartAt)
     && !(reservation.technicianAssignmentStatus
       && ACCEPTED_ASSIGNMENT_STATUSES.includes(reservation.technicianAssignmentStatus));
+}
+
+function cancellationBlockedMessage(reservation: Reservation): string {
+  const technicianAccepted = reservation.technicianAssignmentStatus
+    ? ACCEPTED_ASSIGNMENT_STATUSES.includes(reservation.technicianAssignmentStatus)
+    : false;
+  if (technicianAccepted) {
+    return `${reservation.technicianName ? `${reservation.technicianName} 기사님이 ` : "기사님이 "}예약을 수락하여 취소할 수 없습니다.`;
+  }
+  if (reservation.status !== "CONFIRMED") {
+    return "확정된 예약만 취소할 수 있습니다.";
+  }
+  if (!isFuture(reservation.scheduledStartAt)) {
+    return "예약 시작 후에는 예약을 취소할 수 없습니다.";
+  }
+  return "기사 수락 전에만 예약을 취소할 수 있습니다.";
 }
 
 function formatDateTime(value: string): string {

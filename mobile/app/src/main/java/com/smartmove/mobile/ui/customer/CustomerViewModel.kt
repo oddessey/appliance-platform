@@ -22,6 +22,13 @@ import java.time.LocalDate
 import java.time.LocalTime
 import java.util.UUID
 
+internal val ACCEPTED_TECHNICIAN_ASSIGNMENT_STATUSES = setOf(
+    "ACCEPTED",
+    "ON_THE_WAY",
+    "WORK_STARTED",
+    "WORK_COMPLETED",
+)
+
 data class NewRequestInput(
     val applianceTypeCode: String,
     val originAddress: String,
@@ -71,6 +78,13 @@ data class CustomerDetailState(
             it.status == "CONFIRMED" &&
                 it.technicianAssignmentStatus != "WORK_STARTED" &&
                 it.technicianAssignmentStatus != "WORK_COMPLETED" &&
+                DateTimes.isFuture(it.scheduledStartAt)
+        }
+
+    val cancellableReservation: Reservation?
+        get() = activeReservation?.takeIf {
+            it.status == "CONFIRMED" &&
+                it.technicianAssignmentStatus !in ACCEPTED_TECHNICIAN_ASSIGNMENT_STATUSES &&
                 DateTimes.isFuture(it.scheduledStartAt)
         }
 
@@ -363,9 +377,9 @@ class CustomerViewModel(
 
     fun cancelReservation(reservationId: String) {
         val request = _detail.value.request ?: return
-        if (_detail.value.editableReservation?.id != reservationId) {
+        if (_detail.value.cancellableReservation?.id != reservationId) {
             _detail.update {
-                it.copy(error = "현재 예약 상태에서는 예약을 취소할 수 없습니다. 관리자에게 문의해 주세요.")
+                it.copy(error = "기사 수락 전에만 예약을 취소할 수 있습니다.")
             }
             return
         }
@@ -386,7 +400,9 @@ class CustomerViewModel(
                 loadDetailData(request.id, keepMessage = true)
                 refreshHistory(page = _state.value.historyPage, showLoading = false)
             } catch (error: Exception) {
-                _detail.update { it.copy(busy = false, error = error.userMessage()) }
+                val message = error.userMessage()
+                loadDetailData(request.id)
+                _detail.update { it.copy(error = message) }
             }
         }
     }
