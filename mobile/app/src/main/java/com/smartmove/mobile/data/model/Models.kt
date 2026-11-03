@@ -95,6 +95,19 @@ data class ApplianceType(
 )
 
 @Serializable
+data class ProductRecognitionResponse(
+    val productName: String? = null,
+    val productType: String? = null,
+    val manufacturer: String? = null,
+    val modelNumber: String? = null,
+    val serialNumber: String? = null,
+    val capacity: String? = null,
+    val confidence: Double? = null,
+    val keyFeatures: List<String> = emptyList(),
+    val qrCodeValue: String? = null,
+)
+
+@Serializable
 data class CreateInstallationRequest(
     val applianceTypeCode: String,
     val originAddress: String,

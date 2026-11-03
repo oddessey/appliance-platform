@@ -1,5 +1,9 @@
 package com.smartmove.mobile.ui.customer
 
+import android.content.ActivityNotFoundException
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -58,6 +62,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -66,6 +71,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.smartmove.mobile.AppContainer
 import com.smartmove.mobile.data.model.InstallationHistoryItem
+import com.smartmove.mobile.data.model.ProductRecognitionResponse
 import com.smartmove.mobile.data.model.Quote
 import com.smartmove.mobile.data.model.Reservation
 import com.smartmove.mobile.data.model.UserRole
@@ -93,6 +99,8 @@ import com.smartmove.mobile.ui.theme.Ink
 import com.smartmove.mobile.ui.theme.InkMuted
 import com.smartmove.mobile.util.DateTimes
 import com.smartmove.mobile.util.Labels
+import com.smartmove.mobile.util.createProductRecognitionImageUri
+import java.io.IOException
 import java.time.LocalDate
 import java.time.LocalTime
 
@@ -200,6 +208,7 @@ private fun CustomerNewRequestScreen(
 ) {
     var resetKey by rememberSaveable { mutableIntStateOf(0) }
     val created = state.createdInstallation
+    val context = LocalContext.current
 
     if (created != null) {
         AlertDialog(
@@ -241,6 +250,8 @@ private fun CustomerNewRequestScreen(
             onSubmit = viewModel::submitRequest,
             onClearError = viewModel::clearSubmitError,
             onRetryTypes = viewModel::loadApplianceTypes,
+            onRecognizeProduct = { uri -> viewModel.recognizeProduct(context, uri) },
+            onClearProductRecognition = viewModel::clearProductRecognition,
         )
     }
 }
@@ -252,8 +263,30 @@ private fun CustomerNewRequestForm(
     onSubmit: (NewRequestInput) -> Unit,
     onClearError: () -> Unit,
     onRetryTypes: () -> Unit,
+    onRecognizeProduct: (Uri) -> Unit,
+    onClearProductRecognition: () -> Unit,
 ) {
     val defaultStart = remember { DateTimes.defaultStart() }
+    val context = LocalContext.current
+    val productImagePicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent(),
+        onResult = { uri ->
+            if (uri != null) onRecognizeProduct(uri)
+        },
+    )
+    var cameraImageUri by remember { mutableStateOf<Uri?>(null) }
+    var cameraError by remember { mutableStateOf<String?>(null) }
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture(),
+        onResult = { captured ->
+            val uri = cameraImageUri
+            cameraImageUri = null
+            if (captured && uri != null) {
+                cameraError = null
+                onRecognizeProduct(uri)
+            }
+        },
+    )
     var applianceCode by rememberSaveable { mutableStateOf("") }
     var originAddress by rememberSaveable { mutableStateOf("") }
     var destinationAddress by rememberSaveable { mutableStateOf("") }
@@ -275,6 +308,13 @@ private fun CustomerNewRequestForm(
             state.applianceTypes.none { it.code == applianceCode }
         ) {
             applianceCode = state.applianceTypes.first().code
+        }
+    }
+
+    LaunchedEffect(state.productRecognitionResult) {
+        val recognizedType = state.productRecognitionResult?.productType
+        if (recognizedType != null && state.applianceTypes.any { it.code == recognizedType }) {
+            applianceCode = recognizedType
         }
     }
 
@@ -341,6 +381,76 @@ private fun CustomerNewRequestForm(
                             }
                         }
                     }
+                }
+
+                Spacer(Modifier.height(14.dp))
+                Text(
+                    text = "AI 제품 정보 찾기",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = Ink,
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "제품이나 모델 라벨·QR 사진을 찍거나 선택하면 제품 정보를 확인하고 종류를 입력합니다.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = InkMuted,
+                )
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        onClick = {
+                            cameraError = null
+                            try {
+                                val uri = createProductRecognitionImageUri(context)
+                                cameraImageUri = uri
+                                cameraLauncher.launch(uri)
+                            } catch (exception: IOException) {
+                                cameraError = "카메라 사진을 준비하지 못했습니다. 다시 시도해 주세요."
+                            } catch (exception: IllegalArgumentException) {
+                                cameraError = "카메라 사진을 준비하지 못했습니다. 다시 시도해 주세요."
+                            } catch (exception: ActivityNotFoundException) {
+                                cameraError = "사용할 수 있는 카메라 앱을 찾지 못했습니다."
+                            }
+                        },
+                        enabled = !state.productRecognitionLoading && !state.submitting,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text("사진 촬영")
+                    }
+                    OutlinedButton(
+                        onClick = { productImagePicker.launch("image/*") },
+                        enabled = !state.productRecognitionLoading && !state.submitting,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text("사진 선택")
+                    }
+                }
+                if (state.productRecognitionLoading) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                        )
+                        Spacer(Modifier.width(8.dp))
+                        Text("제품 정보를 분석하고 있습니다", style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+                Text(
+                    text = "선택한 사진과 QR 정보는 분석을 위해 OpenAI로 전송됩니다.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = InkMuted,
+                )
+                cameraError?.let {
+                    ErrorBanner(message = it, onDismiss = { cameraError = null })
+                }
+                if (state.productRecognitionError != null) {
+                    ErrorBanner(
+                        message = state.productRecognitionError,
+                        onDismiss = onClearProductRecognition,
+                    )
+                }
+                state.productRecognitionResult?.let { result ->
+                    ProductRecognitionResultCard(result)
                 }
 
                 Spacer(Modifier.height(12.dp))
@@ -483,6 +593,45 @@ private fun CustomerNewRequestForm(
             }
         }
     }
+}
+
+@Composable
+private fun ProductRecognitionResultCard(result: ProductRecognitionResponse) {
+    SurfaceCard {
+        Text(
+            text = "제품 인식 결과",
+            style = MaterialTheme.typography.titleSmall,
+            color = Ink,
+        )
+        Spacer(Modifier.height(8.dp))
+        InfoRow("제품", result.productName ?: "확인되지 않음")
+        InfoRow("종류", productTypeLabel(result.productType))
+        result.manufacturer?.let { InfoRow("제조사", it) }
+        result.modelNumber?.let { InfoRow("모델명", it) }
+        result.serialNumber?.let { InfoRow("시리얼 번호", it) }
+        result.capacity?.let { InfoRow("용량", it) }
+        result.confidence?.let {
+            InfoRow("인식 신뢰도", "${(it.coerceIn(0.0, 1.0) * 100).toInt()}%")
+        }
+        if (result.keyFeatures.isNotEmpty()) {
+            InfoRow("주요 특징", result.keyFeatures.joinToString(" · "))
+        }
+        result.qrCodeValue?.let {
+            InfoRow("QR 정보", it)
+        }
+        Spacer(Modifier.height(8.dp))
+        InfoBanner(message = "AI 인식 결과는 정확하지 않을 수 있으므로 제품 라벨과 함께 확인해 주세요.")
+    }
+}
+
+private fun productTypeLabel(value: String?): String = when (value) {
+    "AIR_CONDITIONER" -> "에어컨"
+    "REFRIGERATOR" -> "냉장고"
+    "WASHING_MACHINE" -> "세탁기"
+    "TV" -> "TV"
+    "OTHER" -> "기타"
+    null -> "확인되지 않음"
+    else -> value
 }
 
 @Composable

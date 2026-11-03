@@ -3,6 +3,8 @@ package com.smartmove.mobile.util
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
+import androidx.core.content.FileProvider
+import java.io.File
 
 data class PickedImage(
     val fileName: String,
@@ -43,7 +45,19 @@ fun readPickedImage(context: Context, uri: Uri): PickedImage? {
         throw IllegalArgumentException("이미지는 10MB 이하만 업로드할 수 있습니다.")
     }
     val bytes = resolver.openInputStream(uri)?.use { it.readBytes() } ?: return null
+    if (bytes.size > MAX_IMAGE_BYTES) {
+        throw IllegalArgumentException("이미지는 10MB 이하만 업로드할 수 있습니다.")
+    }
     return PickedImage(fileName = fileName, mimeType = mimeType, bytes = bytes)
+}
+
+fun createProductRecognitionImageUri(context: Context): Uri {
+    val imageFile = File.createTempFile("product-recognition-", ".jpg", context.cacheDir)
+    return FileProvider.getUriForFile(
+        context,
+        "${context.packageName}.fileprovider",
+        imageFile,
+    )
 }
 
 private const val MAX_IMAGE_BYTES = 10L * 1024 * 1024

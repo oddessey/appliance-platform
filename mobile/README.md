@@ -7,6 +7,7 @@
 ### 고객
 - 이메일 로그인 및 회원가입
 - 가전제품 종류, 이전/설치 주소, 희망 일정, 추가 작업 조건을 입력해 설치 요청 접수
+- 카메라 촬영 또는 갤러리에서 제품·모델 라벨·QR 사진을 선택해 OpenAI AI 인식 API로 전송, 제품 정보 조회 및 가전 종류 자동 선택
 - 접수 내역 조회 및 페이지 이동
 - 견적 확인·수락
 - 예약 가능 여부 확인 후 방문 예약 생성, 예약 확정 후 예약 취소(기사 수락 전이며 시작 시각 이전인 확정 예약만)
@@ -96,6 +97,7 @@ app/src/main/java/com/smartmove/mobile/
 
 - `POST /auth/login`, `POST /auth/signup`, `POST /auth/logout`, `GET /auth/me`
 - `GET /appliance-types`
+- `POST /product-recognition` (제품/QR 사진 `multipart/form-data`, JPEG/PNG/WebP 10MB 이하)
 - `POST /installations`, `GET /installations`
 - `GET /installations/{id}/quotes`, `POST /quotes/{id}/accept`
 - `GET /reservations`, `GET /reservations/availability`, `POST /reservations`
@@ -104,3 +106,5 @@ app/src/main/java/com/smartmove/mobile/
 - `POST /assignments/{id}/reject`, `POST /assignments/{id}/events`
 - `POST/GET /assignments/{id}/evidence`
 - `GET/PUT /technicians/me/profile`
+
+제품 인식 기능은 백엔드에 `OPENAI_API_KEY`가 설정되어 있어야 합니다. 사용자가 선택한 사진과 QR 정보는 분석을 위해 OpenAI로 전송되며, 백엔드와 모바일 앱은 분석 이미지를 영구 저장하지 않습니다.

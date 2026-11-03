@@ -1,5 +1,7 @@
 package com.smartmove.mobile.ui.customer
 
+import android.content.Context
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.smartmove.mobile.AppContainer
@@ -8,11 +10,15 @@ import com.smartmove.mobile.data.model.CreateInstallationRequest
 import com.smartmove.mobile.data.model.CreateReservationRequest
 import com.smartmove.mobile.data.model.InstallationHistoryItem
 import com.smartmove.mobile.data.model.InstallationResponse
+import com.smartmove.mobile.data.model.ProductRecognitionResponse
 import com.smartmove.mobile.data.model.Quote
 import com.smartmove.mobile.data.model.RescheduleReservationRequest
 import com.smartmove.mobile.data.model.Reservation
 import com.smartmove.mobile.util.DateTimes
+import com.smartmove.mobile.util.readPickedImage
 import com.smartmove.mobile.util.userMessage
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -52,6 +58,9 @@ data class CustomerUiState(
     val submitting: Boolean = false,
     val submitError: String? = null,
     val createdInstallation: InstallationResponse? = null,
+    val productRecognitionLoading: Boolean = false,
+    val productRecognitionError: String? = null,
+    val productRecognitionResult: ProductRecognitionResponse? = null,
 )
 
 data class CustomerDetailState(
@@ -146,6 +155,56 @@ class CustomerViewModel(
         }
     }
 
+    fun recognizeProduct(context: Context, uri: Uri) {
+        if (_state.value.productRecognitionLoading || _state.value.submitting) return
+        _state.update {
+            it.copy(
+                productRecognitionLoading = true,
+                productRecognitionError = null,
+                productRecognitionResult = null,
+            )
+        }
+        viewModelScope.launch {
+            try {
+                val image = withContext(Dispatchers.IO) {
+                    readPickedImage(context.applicationContext, uri)
+                } ?: throw IllegalArgumentException("선택한 사진을 읽을 수 없습니다.")
+                if (image.mimeType !in SUPPORTED_PRODUCT_IMAGE_TYPES) {
+                    throw IllegalArgumentException("JPEG, PNG 또는 WebP 이미지만 선택해 주세요.")
+                }
+                val result = container.api.recognizeProduct(
+                    fileName = image.fileName,
+                    mimeType = image.mimeType,
+                    bytes = image.bytes,
+                )
+                _state.update {
+                    it.copy(
+                        productRecognitionLoading = false,
+                        productRecognitionError = null,
+                        productRecognitionResult = result,
+                    )
+                }
+            } catch (error: Exception) {
+                _state.update {
+                    it.copy(
+                        productRecognitionLoading = false,
+                        productRecognitionError = error.userMessage(),
+                    )
+                }
+            }
+        }
+    }
+
+    fun clearProductRecognition() {
+        _state.update {
+            it.copy(
+                productRecognitionLoading = false,
+                productRecognitionError = null,
+                productRecognitionResult = null,
+            )
+        }
+    }
+
     fun submitRequest(input: NewRequestInput) {
         val validationError = validateRequest(input)
         if (validationError != null) {
@@ -183,7 +242,14 @@ class CustomerViewModel(
     }
 
     fun consumeCreatedInstallation() {
-        _state.update { it.copy(createdInstallation = null) }
+        _state.update {
+            it.copy(
+                createdInstallation = null,
+                productRecognitionLoading = false,
+                productRecognitionError = null,
+                productRecognitionResult = null,
+            )
+        }
     }
 
     fun clearSubmitError() {
@@ -484,5 +550,6 @@ class CustomerViewModel(
 
     private companion object {
         const val PAGE_SIZE = 20
+        val SUPPORTED_PRODUCT_IMAGE_TYPES = setOf("image/jpeg", "image/png", "image/webp")
     }
 }

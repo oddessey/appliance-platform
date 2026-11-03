@@ -11,6 +11,7 @@ import com.smartmove.mobile.data.model.InstallationHistoryPage
 import com.smartmove.mobile.data.model.InstallationResponse
 import com.smartmove.mobile.data.model.LoginRequest
 import com.smartmove.mobile.data.model.QuotePage
+import com.smartmove.mobile.data.model.ProductRecognitionResponse
 import com.smartmove.mobile.data.model.RejectAssignmentRequest
 import com.smartmove.mobile.data.model.RescheduleReservationRequest
 import com.smartmove.mobile.data.model.Reservation
@@ -68,6 +69,14 @@ class ApiService(
     }
 
     suspend fun applianceTypes(): List<ApplianceType> = decode(client.get("appliance-types"))
+
+    suspend fun recognizeProduct(
+        fileName: String,
+        mimeType: String,
+        bytes: ByteArray,
+    ): ProductRecognitionResponse = decode(
+        client.upload("product-recognition", fileName, mimeType, bytes)
+    )
 
     suspend fun createInstallation(request: CreateInstallationRequest): InstallationResponse = decode(
         client.send("POST", "installations", json.encodeToString(request))
