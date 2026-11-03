@@ -3,6 +3,18 @@ export interface ApplianceType {
   name: string;
 }
 
+export interface ProductRecognitionResult {
+  productName: string | null;
+  productType: string | null;
+  manufacturer: string | null;
+  modelNumber: string | null;
+  serialNumber: string | null;
+  capacity: string | null;
+  confidence: number | null;
+  keyFeatures: string[];
+  qrCodeValue: string | null;
+}
+
 export interface CreateInstallationRequest {
   applianceTypeCode: string;
   originAddress: string;

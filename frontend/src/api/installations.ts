@@ -15,12 +15,22 @@ import type {
   TechnicianCandidate,
   TechnicianEvidence,
   PendingTechnicianReservationPage,
+  ProductRecognitionResult,
   TechnicianProfile,
   TechnicianProfileUpdateRequest,
 } from "../types/installation";
 
 export function getApplianceTypes(): Promise<ApplianceType[]> {
   return apiRequest<ApplianceType[]>("/appliance-types");
+}
+
+export function recognizeProduct(file: File): Promise<ProductRecognitionResult> {
+  const form = new FormData();
+  form.append("file", file);
+  return apiRequest<ProductRecognitionResult>("/product-recognition", {
+    method: "POST",
+    body: form,
+  });
 }
 
 export function createInstallation(

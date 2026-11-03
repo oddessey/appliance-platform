@@ -94,6 +94,7 @@
 | 관리자 | GET | `/admin/pricing/requests` | 관리자 | 견적 발행 대기 요청 조회 |
 | 관리자 | POST | `/admin/pricing/requests/{id}/quotes` | 관리자 | 활성 규칙으로 견적 발행·재산출 |
 | 기준정보 | GET | `/appliance-types` | 공개 | 가전 종류 조회 |
+| 제품 인식 | POST | `/product-recognition` | 고객/관리자 | 이미지·QR 코드 기반 제품 정보 인식 |
 | 이전설치 | POST | `/installations` | 고객 | 설치 요청 생성 |
 | 이전설치 | GET | `/installations` | 고객 | 내 설치 요청 접수 내역 |
 | 이전설치 | GET | `/move-requests` | 고객/관리자 | 요청 목록 |
@@ -149,6 +150,28 @@
 | 관리자 | GET | `/admin/ai-analyses?status=NEEDS_REVIEW` | 관리자 | 분석 검토 대상 |
 
 `CRUD`는 해당 리소스에서 필요한 `GET`, `POST`, `PATCH` 또는 `DELETE` 조합을 뜻한다. 실제 구현에서는 업무 이력과 정책을 보존하기 위해 물리적 DELETE보다 비활성화/상태 변경을 우선한다.
+
+### 3.9 제품 정보 인식
+
+`POST /api/v1/product-recognition`은 고객 또는 관리자가 제품/QR 라벨 이미지를 전송하면 QR 코드를 우선 판독하고 OpenAI Vision으로 제품 정보를 분석한다. 제품 이미지는 서버에 저장하지 않으며 요청 처리 후 폐기한다. 이미지와 QR에 담긴 정보는 OpenAI로 전송된다.
+
+요청은 `multipart/form-data`이며 `file` 필드에 JPEG, PNG 또는 WebP 이미지(10MB 이하)를 지정한다. 서버는 QR payload가 있으면 이를 분석 문맥에 포함하되 외부 URL을 열지 않는다. 응답의 `productType`은 `AIR_CONDITIONER`, `REFRIGERATOR`, `WASHING_MACHINE`, `TV`, `OTHER` 중 하나이며, 판독할 수 없는 제품 속성은 `null`이다.
+
+```json
+{
+  "productName": "드럼 세탁기",
+  "productType": "WASHING_MACHINE",
+  "manufacturer": "예시 제조사",
+  "modelNumber": "WM-1234",
+  "serialNumber": null,
+  "capacity": "20kg",
+  "confidence": 0.94,
+  "keyFeatures": ["드럼형", "에너지 효율 등급 1등급"],
+  "qrCodeValue": "https://example.invalid/product/WM-1234"
+}
+```
+
+OpenAI 키는 서버의 `OPENAI_API_KEY` 환경변수로 설정하고, 모델은 선택적으로 `OPENAI_MODEL`로 지정한다(기본값 `gpt-4o-mini`). 키가 없거나 AI 제공자가 응답하지 않으면 `503 PRODUCT_RECOGNITION_UNAVAILABLE`, 지원하지 않는 이미지이거나 10MB를 넘으면 `400 INVALID_PRODUCT_IMAGE`를 반환한다.
 
 ## 3. 주요 요청·응답 예시
 

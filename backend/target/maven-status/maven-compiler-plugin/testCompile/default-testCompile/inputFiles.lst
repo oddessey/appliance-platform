@@ -9,6 +9,9 @@ D:\smartmove-ai\appliance-platform\backend\src\test\java\com\platform\installati
 D:\smartmove-ai\appliance-platform\backend\src\test\java\com\platform\installation\MoveRequestImageServiceTest.java
 D:\smartmove-ai\appliance-platform\backend\src\test\java\com\platform\member\MemberServiceTest.java
 D:\smartmove-ai\appliance-platform\backend\src\test\java\com\platform\pricing\PricingServiceTest.java
+D:\smartmove-ai\appliance-platform\backend\src\test\java\com\platform\product\OpenAiProductRecognitionProviderTest.java
+D:\smartmove-ai\appliance-platform\backend\src\test\java\com\platform\product\ProductQrDecoderTest.java
+D:\smartmove-ai\appliance-platform\backend\src\test\java\com\platform\product\ProductRecognitionServiceTest.java
 D:\smartmove-ai\appliance-platform\backend\src\test\java\com\platform\reservation\ReservationRepositorySqlTest.java
 D:\smartmove-ai\appliance-platform\backend\src\test\java\com\platform\reservation\ReservationServiceTest.java
 D:\smartmove-ai\appliance-platform\backend\src\test\java\com\platform\technician\TechnicianAdminRepositorySqlTest.java

@@ -24,6 +24,14 @@ AI가전이전설치 플랫폼 프로젝트
 
    키는 프런트엔드 설정이나 URL에 넣지 말고 등록 화면의 비밀 키 필드에 입력합니다. 최초 관리자 등록 성공 후 이 키 설정을 제거하고 백엔드를 재시작합니다.
 
+제품 사진 또는 QR 라벨 인식을 사용하려면 백엔드 실행 전에 같은 PowerShell 세션에서 OpenAI API 키를 설정합니다.
+
+```powershell
+$env:OPENAI_API_KEY = "발급한 OpenAI API 키"
+```
+
+필요한 경우 `OPENAI_MODEL` 환경변수로 모델을 변경할 수 있으며 기본값은 `gpt-4o-mini`입니다. 제품 인식 요청 이미지는 OpenAI로 전송되며 서버에는 저장되지 않습니다.
+
 3. 저장소 루트에서 백엔드를 실행합니다: `mvn -f backend/pom.xml spring-boot:run`.
 4. 프런트엔드에서 `npm install` 및 `npm run dev`를 실행합니다. Vite 개발 서버는 `/api` 요청을 `http://localhost:8080`으로 전달합니다. 최초 관리자 등록 화면은 `/admin/register`입니다.
 

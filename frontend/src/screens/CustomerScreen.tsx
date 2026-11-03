@@ -6,12 +6,14 @@ import { AddressSearchInput } from "../components/AddressSearchInput";
 import { CustomerQuoteLookup } from "../components/CustomerQuoteLookup";
 import { DesiredDateTimeInput } from "../components/DesiredDateTimeInput";
 import { InstallationHistory } from "../components/InstallationHistory";
+import { ProductRecognitionPanel } from "../components/ProductRecognitionPanel";
 import { RequestPhotoField } from "../components/RequestPhotoField";
 import { RequestPhotoGallery } from "../components/RequestPhotoGallery";
 import type {
   ApplianceType,
   InstallationResponse,
   MoveRequestImagePurpose,
+  ProductRecognitionResult,
 } from "../types/installation";
 
 const MAX_PHOTO_COUNT = 5;
@@ -43,6 +45,7 @@ interface CustomerScreenProps {
 
 export function CustomerScreen({ showHistory, onViewHistory, onViewHome }: CustomerScreenProps) {
   const [applianceTypes, setApplianceTypes] = useState<ApplianceType[]>([]);
+  const [selectedApplianceTypeCode, setSelectedApplianceTypeCode] = useState("");
   const [typesLoading, setTypesLoading] = useState(true);
   const [typesError, setTypesError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
@@ -178,6 +181,7 @@ export function CustomerScreen({ showHistory, onViewHistory, onViewHome }: Custo
       setFormGeneration((generation) => generation + 1);
       setAppliancePhotos([]);
       setInstallationPhotos([]);
+      setSelectedApplianceTypeCode("");
       formElement.reset();
     } catch (requestError) {
       setError(toMessage(requestError));
@@ -210,13 +214,21 @@ export function CustomerScreen({ showHistory, onViewHistory, onViewHome }: Custo
           onInvalidCapture={() => setError("필수 항목을 입력하고 추가 작업 조건의 입력 범위를 확인해 주세요.")}
           onSubmit={(event) => void submitInstallation(event)}
         >
+          <ProductRecognitionPanel
+            disabled={requestLoading}
+            onRecognized={(result: ProductRecognitionResult) => {
+              const matchedType = applianceTypes.find((type) => type.code === result.productType);
+              if (matchedType) setSelectedApplianceTypeCode(matchedType.code);
+            }}
+          />
           <label>
             가전제품 종류 <span className="required">*</span>
             <select
               name="applianceTypeCode"
               required
               disabled={typesLoading || applianceTypes.length === 0}
-              defaultValue=""
+              onChange={(event) => setSelectedApplianceTypeCode(event.currentTarget.value)}
+              value={selectedApplianceTypeCode}
             >
               <option value="" disabled>
                 {typesLoading ? "제품 종류를 불러오는 중..." : "제품을 선택해 주세요"}

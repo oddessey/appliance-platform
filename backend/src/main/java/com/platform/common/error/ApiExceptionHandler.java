@@ -10,6 +10,9 @@ import com.platform.installation.InvalidMoveRequestImageException;
 import com.platform.installation.MoveRequestImageAssetNotFoundException;
 import com.platform.installation.MoveRequestImageNotFoundException;
 import com.platform.installation.MoveRequestImageStorageException;
+import com.platform.product.InvalidProductImageException;
+import com.platform.product.ProductRecognitionImageReadException;
+import com.platform.product.ProductRecognitionUnavailableException;
 import com.platform.member.InvalidMemberRequestException;
 import com.platform.member.AccountManagementConflictException;
 import com.platform.member.MemberNotFoundException;
@@ -190,6 +193,33 @@ public class ApiExceptionHandler {
         LOGGER.error("Unable to access move request image storage", exception);
         return response(request, HttpStatus.INTERNAL_SERVER_ERROR, "MOVE_REQUEST_IMAGE_STORAGE_ERROR",
                 "요청 사진을 저장하거나 읽지 못했습니다.", List.of());
+    }
+
+    @ExceptionHandler(InvalidProductImageException.class)
+    public ResponseEntity<ApiErrorResponse> handleInvalidProductImage(HttpServletRequest request) {
+        return response(request, HttpStatus.BAD_REQUEST, "INVALID_PRODUCT_IMAGE",
+                "JPEG, PNG 또는 WebP 형식의 10MB 이하 이미지를 첨부해 주세요.", List.of());
+    }
+
+    @ExceptionHandler(ProductRecognitionImageReadException.class)
+    public ResponseEntity<ApiErrorResponse> handleProductRecognitionImageRead(
+            ProductRecognitionImageReadException exception,
+            HttpServletRequest request
+    ) {
+        LOGGER.error("Unable to read product recognition image", exception);
+        return response(request, HttpStatus.INTERNAL_SERVER_ERROR, "PRODUCT_IMAGE_READ_ERROR",
+                "제품 이미지를 읽지 못했습니다. 다시 선택해 주세요.", List.of());
+    }
+
+    @ExceptionHandler(ProductRecognitionUnavailableException.class)
+    public ResponseEntity<ApiErrorResponse> handleProductRecognitionUnavailable(
+            ProductRecognitionUnavailableException exception,
+            HttpServletRequest request
+    ) {
+        LOGGER.warn("Product recognition provider is unavailable: {}",
+                exception.getCause() == null ? "not configured" : exception.getCause().getClass().getSimpleName());
+        return response(request, HttpStatus.SERVICE_UNAVAILABLE, "PRODUCT_RECOGNITION_UNAVAILABLE",
+                "제품 인식 서비스를 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.", List.of());
     }
 
     @ExceptionHandler(MemberNotFoundException.class)

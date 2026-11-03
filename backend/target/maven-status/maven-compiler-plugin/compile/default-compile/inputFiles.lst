@@ -84,6 +84,17 @@ D:\smartmove-ai\appliance-platform\backend\src\main\java\com\platform\pricing\Qu
 D:\smartmove-ai\appliance-platform\backend\src\main\java\com\platform\pricing\QuoteNotFoundException.java
 D:\smartmove-ai\appliance-platform\backend\src\main\java\com\platform\pricing\QuotePageResponse.java
 D:\smartmove-ai\appliance-platform\backend\src\main\java\com\platform\pricing\QuoteResponse.java
+D:\smartmove-ai\appliance-platform\backend\src\main\java\com\platform\product\InvalidProductImageException.java
+D:\smartmove-ai\appliance-platform\backend\src\main\java\com\platform\product\OpenAiProductRecognitionProvider.java
+D:\smartmove-ai\appliance-platform\backend\src\main\java\com\platform\product\ProductQrDecoder.java
+D:\smartmove-ai\appliance-platform\backend\src\main\java\com\platform\product\ProductRecognitionConfiguration.java
+D:\smartmove-ai\appliance-platform\backend\src\main\java\com\platform\product\ProductRecognitionController.java
+D:\smartmove-ai\appliance-platform\backend\src\main\java\com\platform\product\ProductRecognitionDetails.java
+D:\smartmove-ai\appliance-platform\backend\src\main\java\com\platform\product\ProductRecognitionImageReadException.java
+D:\smartmove-ai\appliance-platform\backend\src\main\java\com\platform\product\ProductRecognitionProvider.java
+D:\smartmove-ai\appliance-platform\backend\src\main\java\com\platform\product\ProductRecognitionResponse.java
+D:\smartmove-ai\appliance-platform\backend\src\main\java\com\platform\product\ProductRecognitionService.java
+D:\smartmove-ai\appliance-platform\backend\src\main\java\com\platform\product\ProductRecognitionUnavailableException.java
 D:\smartmove-ai\appliance-platform\backend\src\main\java\com\platform\reservation\ActiveReservationExistsException.java
 D:\smartmove-ai\appliance-platform\backend\src\main\java\com\platform\reservation\CreateReservationRequest.java
 D:\smartmove-ai\appliance-platform\backend\src\main\java\com\platform\reservation\IdempotencyKeyConflictException.java
