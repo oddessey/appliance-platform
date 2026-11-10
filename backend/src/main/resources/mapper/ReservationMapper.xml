@@ -1,0 +1,378 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.platform.reservation.ReservationMapper">
+
+    <resultMap id="reservationRequestState" type="com.platform.reservation.ReservationRepository$ReservationRequestState">
+        <constructor>
+            <arg column="customer_id" javaType="java.util.UUID"
+                 typeHandler="com.platform.reservation.UuidTypeHandler"/>
+            <arg column="status" javaType="java.lang.String"/>
+            <arg column="has_active_reservation" javaType="boolean"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="idempotencyRecord" type="com.platform.reservation.ReservationRepository$IdempotencyRecord">
+        <constructor>
+            <arg column="id" javaType="java.util.UUID"
+                 typeHandler="com.platform.reservation.UuidTypeHandler"/>
+            <arg column="idempotency_request_hash" javaType="java.lang.String"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="reservationState" type="com.platform.reservation.ReservationRepository$ReservationState">
+        <constructor>
+            <arg column="move_request_id" javaType="java.util.UUID"
+                 typeHandler="com.platform.reservation.UuidTypeHandler"/>
+            <arg column="status" javaType="java.lang.String"/>
+            <arg column="scheduled_start_at" javaType="java.time.OffsetDateTime"/>
+            <arg column="scheduled_end_at" javaType="java.time.OffsetDateTime"/>
+            <arg column="customer_id" javaType="java.util.UUID"
+                 typeHandler="com.platform.reservation.UuidTypeHandler"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="expiredReservation" type="com.platform.reservation.ReservationRepository$ExpiredReservation">
+        <constructor>
+            <arg column="id" javaType="java.util.UUID"
+                 typeHandler="com.platform.reservation.UuidTypeHandler"/>
+            <arg column="move_request_id" javaType="java.util.UUID"
+                 typeHandler="com.platform.reservation.UuidTypeHandler"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="reservationResponse" type="com.platform.reservation.ReservationResponse">
+        <constructor>
+            <idArg column="id" javaType="java.util.UUID"
+                   typeHandler="com.platform.reservation.UuidTypeHandler"/>
+            <arg column="reservation_no" javaType="java.lang.String"/>
+            <arg column="move_request_id" javaType="java.util.UUID"
+                 typeHandler="com.platform.reservation.UuidTypeHandler"/>
+            <arg column="request_no" javaType="java.lang.String"/>
+            <arg column="quote_id" javaType="java.util.UUID"
+                 typeHandler="com.platform.reservation.UuidTypeHandler"/>
+            <arg column="quote_no" javaType="java.lang.String"/>
+            <arg column="status" javaType="java.lang.String"/>
+            <arg column="scheduled_start_at" javaType="java.time.OffsetDateTime"/>
+            <arg column="scheduled_end_at" javaType="java.time.OffsetDateTime"/>
+            <arg column="customer_memo" javaType="java.lang.String"/>
+            <arg column="confirmed_at" javaType="java.time.OffsetDateTime"/>
+            <arg column="cancelled_at" javaType="java.time.OffsetDateTime"/>
+            <arg column="created_at" javaType="java.time.OffsetDateTime"/>
+            <arg column="customer_name" javaType="java.lang.String"/>
+            <arg column="customer_phone" javaType="java.lang.String"/>
+            <arg column="origin_address" javaType="java.lang.String"/>
+            <arg column="destination_address" javaType="java.lang.String"/>
+            <arg column="quote_total_amount" javaType="java.math.BigDecimal"/>
+            <arg column="technician_assignment_status" javaType="java.lang.String"/>
+            <arg column="technician_assignment_id" javaType="java.util.UUID"
+                 typeHandler="com.platform.reservation.UuidTypeHandler"/>
+            <arg column="technician_name" javaType="java.lang.String"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="uuidValue" type="com.platform.reservation.ReservationMapper$UuidValue">
+        <constructor>
+            <arg column="id" javaType="java.util.UUID"
+                 typeHandler="com.platform.reservation.UuidTypeHandler"/>
+        </constructor>
+    </resultMap>
+
+    <sql id="reservationColumns">
+        r.id, r.reservation_no, r.move_request_id, mr.request_no, r.quote_id, q.quote_no,
+        r.status, r.scheduled_start_at, r.scheduled_end_at, r.customer_memo,
+        r.confirmed_at, r.cancelled_at, r.created_at, customer.name AS customer_name,
+        customer.phone AS customer_phone, mr.origin_address, mr.destination_address,
+        q.total_amount AS quote_total_amount,
+        (SELECT ta.status
+         FROM technician_assignment ta
+         WHERE ta.reservation_id = r.id
+         ORDER BY ta.assigned_at DESC, ta.id DESC
+         LIMIT 1) AS technician_assignment_status,
+        (SELECT ta.id
+         FROM technician_assignment ta
+         WHERE ta.reservation_id = r.id
+         ORDER BY ta.assigned_at DESC, ta.id DESC
+         LIMIT 1) AS technician_assignment_id,
+        (SELECT technician.name
+         FROM technician_assignment ta
+         JOIN technician_profile tp ON tp.id = ta.technician_id
+         JOIN app_user technician ON technician.id = tp.user_id
+         WHERE ta.reservation_id = r.id
+         ORDER BY ta.assigned_at DESC, ta.id DESC
+         LIMIT 1) AS technician_name
+    </sql>
+
+    <sql id="reservationJoins">
+        FROM reservation r
+        JOIN move_request mr ON mr.id = r.move_request_id
+        JOIN quote q ON q.id = r.quote_id
+        JOIN app_user customer ON customer.id = mr.customer_id
+    </sql>
+
+    <sql id="adminAssignmentJoin">
+        LEFT JOIN LATERAL (
+            SELECT ta.status
+            FROM technician_assignment ta
+            WHERE ta.reservation_id = r.id
+            ORDER BY ta.assigned_at DESC, ta.id DESC
+            LIMIT 1
+        ) current_assignment ON true
+    </sql>
+
+    <select id="lockRequest" resultMap="reservationRequestState">
+        SELECT mr.customer_id, mr.status,
+               EXISTS (
+                   SELECT 1 FROM reservation r
+                   WHERE r.move_request_id = mr.id
+                     AND r.status IN ('PENDING', 'CONFIRMED', 'RESCHEDULE_REQUESTED')
+               ) AS has_active_reservation
+        FROM move_request mr
+        WHERE mr.id = #{requestId,typeHandler=com.platform.reservation.UuidTypeHandler}
+        FOR UPDATE OF mr
+    </select>
+
+    <select id="findRequest" resultMap="reservationRequestState">
+        SELECT mr.customer_id, mr.status,
+               EXISTS (
+                   SELECT 1 FROM reservation r
+                   WHERE r.move_request_id = mr.id
+                     AND r.status IN ('PENDING', 'CONFIRMED', 'RESCHEDULE_REQUESTED')
+               ) AS has_active_reservation
+        FROM move_request mr
+        WHERE mr.id = #{requestId,typeHandler=com.platform.reservation.UuidTypeHandler}
+    </select>
+
+    <select id="isLatestAcceptedQuote" resultType="boolean">
+        SELECT EXISTS (
+            SELECT 1 FROM quote q
+            WHERE q.id = #{quoteId,typeHandler=com.platform.reservation.UuidTypeHandler}
+              AND q.move_request_id = #{requestId,typeHandler=com.platform.reservation.UuidTypeHandler}
+              AND q.status = 'ACCEPTED'
+              AND q.version_no = (
+                  SELECT max(latest.version_no)
+                  FROM quote latest
+                  WHERE latest.move_request_id = q.move_request_id
+              )
+        )
+    </select>
+
+    <select id="isAvailable" resultType="boolean">
+        SELECT NOT EXISTS (
+            SELECT 1 FROM reservation r
+            WHERE r.move_request_id = #{requestId,typeHandler=com.platform.reservation.UuidTypeHandler}
+              AND r.status IN ('PENDING', 'CONFIRMED', 'RESCHEDULE_REQUESTED')
+              AND r.scheduled_start_at &lt; #{endAt}
+              AND r.scheduled_end_at &gt; #{startAt}
+              <if test="excludeId != null">
+                  AND r.id &lt;&gt; #{excludeId,typeHandler=com.platform.reservation.UuidTypeHandler}
+              </if>
+        )
+    </select>
+
+    <select id="findByIdempotencyKey" resultMap="idempotencyRecord">
+        SELECT r.id, r.idempotency_request_hash
+        FROM reservation r
+        WHERE r.idempotency_key = #{idempotencyKey}
+    </select>
+
+    <select id="createReservation" resultMap="uuidValue" affectData="true" flushCache="true">
+        INSERT INTO reservation (
+            id, reservation_no, move_request_id, quote_id, status,
+            scheduled_start_at, scheduled_end_at, customer_memo, confirmed_at,
+            idempotency_key, idempotency_request_hash
+        )
+        VALUES (
+            #{id,typeHandler=com.platform.reservation.UuidTypeHandler}, #{reservationNo},
+            #{requestId,typeHandler=com.platform.reservation.UuidTypeHandler},
+            #{quoteId,typeHandler=com.platform.reservation.UuidTypeHandler}, 'CONFIRMED',
+            #{startAt}, #{endAt}, #{customerMemo}, now(), #{idempotencyKey}, #{requestHash}
+        )
+        ON CONFLICT (idempotency_key) WHERE idempotency_key IS NOT NULL DO NOTHING
+        RETURNING id
+    </select>
+
+    <select id="findById" resultMap="reservationResponse">
+        SELECT <include refid="reservationColumns"/>
+        <include refid="reservationJoins"/>
+        WHERE r.id = #{reservationId,typeHandler=com.platform.reservation.UuidTypeHandler}
+    </select>
+
+    <select id="findCustomerReservation" resultMap="reservationResponse">
+        SELECT <include refid="reservationColumns"/>
+        <include refid="reservationJoins"/>
+        WHERE r.id = #{reservationId,typeHandler=com.platform.reservation.UuidTypeHandler}
+          AND mr.customer_id = #{customerId,typeHandler=com.platform.reservation.UuidTypeHandler}
+    </select>
+
+    <select id="countCustomerReservations" resultType="long">
+        SELECT count(*)
+        FROM reservation r
+        JOIN move_request mr ON mr.id = r.move_request_id
+        WHERE mr.customer_id = #{customerId,typeHandler=com.platform.reservation.UuidTypeHandler}
+        <if test="requestId != null">
+            AND r.move_request_id = #{requestId,typeHandler=com.platform.reservation.UuidTypeHandler}
+        </if>
+    </select>
+
+    <select id="findCustomerReservations" resultMap="reservationResponse">
+        SELECT <include refid="reservationColumns"/>
+        <include refid="reservationJoins"/>
+        WHERE mr.customer_id = #{customerId,typeHandler=com.platform.reservation.UuidTypeHandler}
+        <if test="requestId != null">
+            AND r.move_request_id = #{requestId,typeHandler=com.platform.reservation.UuidTypeHandler}
+        </if>
+        ORDER BY r.created_at DESC, r.id DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countAdminReservations" resultType="long">
+        SELECT count(*)
+        FROM reservation r
+        <include refid="adminAssignmentJoin"/>
+        <where>
+            <if test="status != null">
+                r.status = #{status}
+            </if>
+            <if test="assignmentStatus != null">
+                AND current_assignment.status = #{assignmentStatus}
+            </if>
+        </where>
+    </select>
+
+    <select id="findAdminReservations" resultMap="reservationResponse">
+        SELECT <include refid="reservationColumns"/>
+        <include refid="reservationJoins"/>
+        <include refid="adminAssignmentJoin"/>
+        <where>
+            <if test="status != null">
+                r.status = #{status}
+            </if>
+            <if test="assignmentStatus != null">
+                AND current_assignment.status = #{assignmentStatus}
+            </if>
+        </where>
+        ORDER BY r.scheduled_start_at, r.id
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="lockReservation" resultMap="reservationState">
+        SELECT r.move_request_id, r.status, r.scheduled_start_at, r.scheduled_end_at, mr.customer_id
+        FROM reservation r
+        JOIN move_request mr ON mr.id = r.move_request_id
+        WHERE r.id = #{reservationId,typeHandler=com.platform.reservation.UuidTypeHandler}
+        <if test="customerId != null">
+            AND mr.customer_id = #{customerId,typeHandler=com.platform.reservation.UuidTypeHandler}
+        </if>
+        FOR UPDATE OF mr, r
+    </select>
+
+    <select id="findReservationState" resultMap="reservationState">
+        SELECT r.move_request_id, r.status, r.scheduled_start_at, r.scheduled_end_at, mr.customer_id
+        FROM reservation r
+        JOIN move_request mr ON mr.id = r.move_request_id
+        WHERE r.id = #{reservationId,typeHandler=com.platform.reservation.UuidTypeHandler}
+          AND mr.customer_id = #{customerId,typeHandler=com.platform.reservation.UuidTypeHandler}
+    </select>
+
+    <update id="updateSchedule">
+        UPDATE reservation
+        SET scheduled_start_at = #{startAt}, scheduled_end_at = #{endAt}, updated_at = now()
+        WHERE id = #{reservationId,typeHandler=com.platform.reservation.UuidTypeHandler}
+          AND status = 'CONFIRMED'
+    </update>
+
+    <select id="hasWorkStartedAssignment" resultType="boolean">
+        SELECT EXISTS (
+            SELECT 1 FROM technician_assignment
+            WHERE reservation_id = #{reservationId,typeHandler=com.platform.reservation.UuidTypeHandler}
+              AND status IN ('WORK_STARTED', 'WORK_COMPLETED')
+        )
+    </select>
+
+    <select id="hasAcceptedAssignment" resultType="boolean">
+        SELECT EXISTS (
+            SELECT 1 FROM technician_assignment
+            WHERE reservation_id = #{reservationId,typeHandler=com.platform.reservation.UuidTypeHandler}
+              AND status IN ('ACCEPTED', 'ON_THE_WAY', 'WORK_STARTED', 'WORK_COMPLETED')
+        )
+    </select>
+
+    <select id="cancelOpenAssignments" resultMap="uuidValue" affectData="true" flushCache="true">
+        UPDATE technician_assignment
+        SET status = 'CANCELLED', updated_at = now()
+        WHERE reservation_id = #{reservationId,typeHandler=com.platform.reservation.UuidTypeHandler}
+          AND status IN ('PENDING', 'ACCEPTED', 'ON_THE_WAY')
+        RETURNING id
+    </select>
+
+    <insert id="insertCancellationWorkEvent">
+        INSERT INTO work_event (id, assignment_id, event_type, note, created_by)
+        VALUES (#{id,typeHandler=com.platform.reservation.UuidTypeHandler},
+                #{assignmentId,typeHandler=com.platform.reservation.UuidTypeHandler}, 'CANCELLED',
+                #{reason}, #{actorId,typeHandler=com.platform.reservation.UuidTypeHandler})
+    </insert>
+
+    <update id="markRequestReserved">
+        UPDATE move_request
+        SET status = 'RESERVED', updated_at = now()
+        WHERE id = #{requestId,typeHandler=com.platform.reservation.UuidTypeHandler} AND status = 'QUOTED'
+    </update>
+
+    <update id="cancelReservation">
+        UPDATE reservation
+        SET status = 'CANCELLED', cancelled_at = now(), updated_at = now()
+        WHERE id = #{reservationId,typeHandler=com.platform.reservation.UuidTypeHandler} AND status = 'CONFIRMED'
+    </update>
+
+    <update id="returnRequestToQuoted">
+        UPDATE move_request
+        SET status = 'QUOTED', updated_at = now()
+        WHERE id = #{requestId,typeHandler=com.platform.reservation.UuidTypeHandler} AND status = 'RESERVED'
+    </update>
+
+    <insert id="recordAudit">
+        INSERT INTO audit_log (
+            id, actor_user_id, action, entity_type, entity_id, before_summary, after_summary
+        )
+        VALUES (
+            #{id,typeHandler=com.platform.reservation.UuidTypeHandler},
+            #{actorId,typeHandler=com.platform.reservation.UuidTypeHandler}, #{action}, 'RESERVATION',
+            #{reservationId,typeHandler=com.platform.reservation.UuidTypeHandler}, jsonb_build_object(
+                'status', CAST(#{beforeStatus} AS text)
+            ), jsonb_build_object(
+                'status', CAST(#{afterStatus} AS text),
+                'scheduledStartAt', CAST(#{startAt} AS text),
+                'scheduledEndAt', CAST(#{endAt} AS text)
+            )
+        )
+    </insert>
+
+    <insert id="recordScheduleAudit">
+        INSERT INTO audit_log (
+            id, actor_user_id, action, entity_type, entity_id, before_summary, after_summary
+        )
+        VALUES (
+            #{id,typeHandler=com.platform.reservation.UuidTypeHandler},
+            #{actorId,typeHandler=com.platform.reservation.UuidTypeHandler}, #{action}, 'RESERVATION',
+            #{reservationId,typeHandler=com.platform.reservation.UuidTypeHandler}, jsonb_build_object(
+                'scheduledStartAt', CAST(#{beforeStartAt} AS text),
+                'scheduledEndAt', CAST(#{beforeEndAt} AS text)
+            ), jsonb_build_object(
+                'scheduledStartAt', CAST(#{afterStartAt} AS text),
+                'scheduledEndAt', CAST(#{afterEndAt} AS text)
+            )
+        )
+    </insert>
+
+    <select id="expirePendingReservations" resultMap="expiredReservation" affectData="true" flushCache="true">
+        WITH expired AS (
+            UPDATE reservation
+            SET status = 'EXPIRED', updated_at = now()
+            WHERE status = 'PENDING' AND created_at &lt;= #{cutoff}
+            RETURNING id, move_request_id
+        )
+        SELECT id, move_request_id FROM expired
+    </select>
+</mapper>

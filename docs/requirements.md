@@ -64,7 +64,7 @@
 | 백엔드 | Java 21 (LTS), Spring Boot 3.5.x |
 | 빌드 도구 | Maven Wrapper |
 | 데이터베이스 | PostgreSQL 16 |
-| 데이터 접근 | Spring Data JPA |
+| 데이터 접근 | MyBatis Mapper (XML) |
 | API | REST API, JSON |
 | 인증 | Spring Security, JWT 또는 보안 쿠키 기반 인증 |
 | 이미지 저장 | 개발용 로컬 저장소, 운영용 S3 또는 Azure Blob Storage |

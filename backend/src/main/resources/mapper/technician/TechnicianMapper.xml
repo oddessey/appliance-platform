@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.platform.technician.mapper.TechnicianMapper">
+    <resultMap id="assignmentResponse" type="com.platform.technician.TechnicianAssignmentResponse">
+        <constructor>
+            <idArg column="id" javaType="java.util.UUID"/>
+            <arg column="move_request_id" javaType="java.util.UUID"/>
+            <arg column="status" javaType="string"/>
+            <arg column="reservation_no" javaType="string"/>
+            <arg column="scheduled_start_at" javaType="java.time.OffsetDateTime"/>
+            <arg column="scheduled_end_at" javaType="java.time.OffsetDateTime"/>
+            <arg column="customer_name" javaType="string"/>
+            <arg column="customer_phone" javaType="string"/>
+            <arg column="origin_address" javaType="string"/>
+            <arg column="destination_address" javaType="string"/>
+            <arg column="appliance_types" javaType="string"/>
+            <arg column="customer_memo" javaType="string"/>
+            <arg column="quote_no" javaType="string"/>
+            <arg column="total_amount" javaType="java.math.BigDecimal"/>
+        </constructor>
+    </resultMap>
+
+    <select id="findActiveApprovedProfileId" resultType="java.util.UUID">
+        SELECT id
+        FROM technician_profile
+        WHERE user_id = #{userId} AND active = true AND approval_status = 'APPROVED'
+    </select>
+
+    <select id="findAssignments" resultMap="assignmentResponse">
+        SELECT ta.id, r.move_request_id, ta.status, r.reservation_no,
+               r.scheduled_start_at, r.scheduled_end_at,
+               customer.name AS customer_name, customer.phone AS customer_phone,
+               mr.origin_address, mr.destination_address,
+               string_agg(DISTINCT appliance_type.name, ', ' ORDER BY appliance_type.name) AS appliance_types,
+               mr.customer_memo, quote.quote_no, quote.total_amount
+        FROM technician_assignment ta
+        JOIN reservation r ON r.id = ta.reservation_id
+        JOIN quote ON quote.id = r.quote_id
+        JOIN move_request mr ON mr.id = r.move_request_id
+        JOIN app_user customer ON customer.id = mr.customer_id
+        JOIN move_item mi ON mi.move_request_id = mr.id
+        JOIN appliance_type ON appliance_type.id = mi.appliance_type_id
+        WHERE ta.technician_id = #{profileId}
+          AND (#{status,jdbcType=VARCHAR}::varchar IS NULL OR ta.status = #{status,jdbcType=VARCHAR})
+        GROUP BY ta.id, r.move_request_id, ta.status, r.reservation_no,
+                 r.scheduled_start_at, r.scheduled_end_at, customer.name,
+                 customer.phone, mr.origin_address, mr.destination_address,
+                 mr.customer_memo, quote.quote_no, quote.total_amount
+        ORDER BY r.scheduled_start_at, ta.assigned_at DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countAssignments" resultType="long">
+        SELECT count(*)
+        FROM technician_assignment
+        WHERE technician_id = #{profileId}
+          AND (#{status,jdbcType=VARCHAR}::varchar IS NULL OR status = #{status,jdbcType=VARCHAR})
+    </select>
+
+    <select id="lockAssignmentStatus" resultType="string">
+        SELECT status
+        FROM technician_assignment
+        WHERE id = #{assignmentId} AND technician_id = #{profileId}
+        FOR UPDATE
+    </select>
+
+    <update id="updateAssignmentStatus">
+        UPDATE technician_assignment
+        SET status = #{status}, responded_at = COALESCE(responded_at, now()),
+            completed_at = CASE WHEN #{completed} THEN now() ELSE completed_at END,
+            updated_at = now()
+        WHERE id = #{assignmentId}
+    </update>
+
+    <update id="rejectAssignment">
+        UPDATE technician_assignment
+        SET status = 'REJECTED', rejection_reason = #{reason}, responded_at = now(), updated_at = now()
+        WHERE id = #{assignmentId}
+    </update>
+
+    <insert id="createWorkEvent">
+        INSERT INTO work_event (id, assignment_id, event_type, note, created_by)
+        VALUES (#{id}, #{assignmentId}, #{eventType}, #{note}, #{userId})
+    </insert>
+
+    <select id="findAssignment" resultMap="assignmentResponse">
+        SELECT ta.id, r.move_request_id, ta.status, r.reservation_no,
+               r.scheduled_start_at, r.scheduled_end_at,
+               customer.name AS customer_name, customer.phone AS customer_phone,
+               mr.origin_address, mr.destination_address,
+               string_agg(DISTINCT appliance_type.name, ', ' ORDER BY appliance_type.name) AS appliance_types,
+               mr.customer_memo, quote.quote_no, quote.total_amount
+        FROM technician_assignment ta
+        JOIN reservation r ON r.id = ta.reservation_id
+        JOIN quote ON quote.id = r.quote_id
+        JOIN move_request mr ON mr.id = r.move_request_id
+        JOIN app_user customer ON customer.id = mr.customer_id
+        JOIN move_item mi ON mi.move_request_id = mr.id
+        JOIN appliance_type ON appliance_type.id = mi.appliance_type_id
+        WHERE ta.id = #{assignmentId} AND ta.technician_id = #{profileId}
+        GROUP BY ta.id, r.move_request_id, ta.status, r.reservation_no,
+                 r.scheduled_start_at, r.scheduled_end_at, customer.name,
+                 customer.phone, mr.origin_address, mr.destination_address,
+                 mr.customer_memo, quote.quote_no, quote.total_amount
+    </select>
+</mapper>

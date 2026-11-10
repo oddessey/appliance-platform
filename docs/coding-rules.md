@@ -83,6 +83,7 @@ project-root/
 - `Controller`: HTTP 상태·경로·DTO 변환, 인증 주체 전달.
 - `Service`: 업무 규칙, 트랜잭션 경계, 상태 전이 검증.
 - `Repository`: 데이터 접근만 수행.
+- 데이터베이스 SQL은 MyBatis Mapper XML에 작성하고, Java Repository는 Mapper를 호출한다. 업무 SQL 실행에 `JdbcTemplate` 또는 직접 JDBC API를 사용하지 않는다.
 - `Entity`: 영속성 모델과 핵심 불변조건. API 응답으로 직접 노출하지 않는다.
 - `Request/Response DTO`: 외부 계약 모델. Entity와 분리한다.
 - `Client/Adapter`: AI, 결제사, 객체 스토리지 호출을 담당한다.

@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.platform.technician.mapper.TechnicianEvidenceMapper">
+    <resultMap id="evidenceResponse" type="com.platform.technician.TechnicianEvidenceResponse">
+        <constructor>
+            <idArg column="id" javaType="java.util.UUID"/>
+            <arg column="original_filename" javaType="string"/>
+            <arg column="content_type" javaType="string"/>
+            <arg column="size_bytes" javaType="long"/>
+            <arg column="created_at" javaType="java.time.OffsetDateTime"/>
+        </constructor>
+    </resultMap>
+    <resultMap id="evidenceFile" type="com.platform.technician.TechnicianEvidenceFileRow">
+        <constructor>
+            <arg column="object_key" javaType="string"/>
+            <arg column="original_filename" javaType="string"/>
+            <arg column="content_type" javaType="string"/>
+        </constructor>
+    </resultMap>
+
+    <select id="lockAssignmentStatus" resultType="string">
+        SELECT status FROM technician_assignment
+        WHERE id = #{assignmentId} AND technician_id = #{profileId}
+        FOR UPDATE
+    </select>
+
+    <select id="assignmentExists" resultType="boolean">
+        SELECT EXISTS (
+            SELECT 1 FROM technician_assignment WHERE id = #{assignmentId} AND technician_id = #{profileId})
+    </select>
+
+    <select id="insertEvidence" resultMap="evidenceResponse" affectData="true" flushCache="true" useCache="false">
+        INSERT INTO request_image
+            (id, move_request_id, storage_provider, object_key, original_filename,
+             content_type, size_bytes, purpose, uploaded_by)
+        SELECT #{imageId}, mr.id, 'LOCAL', #{objectKey}, #{filename}, #{contentType}, #{sizeBytes},
+               'WORK_PROOF', #{userId}
+        FROM technician_assignment ta
+        JOIN reservation r ON r.id = ta.reservation_id
+        JOIN move_request mr ON mr.id = r.move_request_id
+        WHERE ta.id = #{assignmentId} AND ta.technician_id = #{profileId}
+        RETURNING id, original_filename, content_type, size_bytes, created_at
+    </select>
+
+    <insert id="recordEvidenceEvent">
+        INSERT INTO work_event (id, assignment_id, event_type, note, evidence_image_id, created_by)
+        VALUES (#{id}, #{assignmentId}, 'EVIDENCE_UPLOADED',
+                '작업 증빙 이미지를 등록했습니다.', #{imageId}, #{userId})
+    </insert>
+
+    <select id="listEvidence" resultMap="evidenceResponse">
+        SELECT DISTINCT image.id, image.original_filename, image.content_type,
+               image.size_bytes, image.created_at
+        FROM technician_assignment ta
+        JOIN work_event event ON event.assignment_id = ta.id
+        JOIN request_image image ON image.id = event.evidence_image_id
+        WHERE ta.id = #{assignmentId} AND ta.technician_id = #{profileId} AND image.uploaded_by = #{userId}
+        ORDER BY image.created_at
+    </select>
+
+    <select id="listEvidenceForAdmin" resultMap="evidenceResponse">
+        SELECT DISTINCT image.id, image.original_filename, image.content_type,
+               image.size_bytes, image.created_at
+        FROM technician_assignment ta
+        JOIN work_event event ON event.assignment_id = ta.id
+        JOIN request_image image ON image.id = event.evidence_image_id
+        WHERE ta.id = #{assignmentId} AND image.purpose = 'WORK_PROOF'
+        ORDER BY image.created_at
+    </select>
+
+    <select id="findEvidenceFile" resultMap="evidenceFile">
+        SELECT image.object_key, image.original_filename, image.content_type
+        FROM technician_assignment ta
+        JOIN work_event event ON event.assignment_id = ta.id
+        JOIN request_image image ON image.id = event.evidence_image_id
+        WHERE ta.id = #{assignmentId} AND ta.technician_id = #{profileId} AND image.id = #{evidenceId}
+          AND image.uploaded_by = #{userId} AND image.purpose = 'WORK_PROOF'
+    </select>
+
+    <select id="findEvidenceFileForAdmin" resultMap="evidenceFile">
+        SELECT image.object_key, image.original_filename, image.content_type
+        FROM technician_assignment ta
+        JOIN work_event event ON event.assignment_id = ta.id
+        JOIN request_image image ON image.id = event.evidence_image_id
+        WHERE ta.id = #{assignmentId} AND image.id = #{evidenceId} AND image.purpose = 'WORK_PROOF'
+    </select>
+</mapper>

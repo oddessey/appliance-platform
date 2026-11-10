@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.platform.auth.MemberMapper">
+    <resultMap id="memberRow" type="com.platform.auth.MemberRow">
+        <id property="id" column="id" javaType="java.util.UUID"
+            typeHandler="org.apache.ibatis.type.ObjectTypeHandler"/>
+        <result property="email" column="email"/>
+        <result property="passwordHash" column="password_hash"/>
+        <result property="name" column="name"/>
+        <result property="phone" column="phone"/>
+        <result property="status" column="status"/>
+        <result property="authVersion" column="auth_version"/>
+    </resultMap>
+
+    <select id="acquireAdminBootstrapLock" resultType="int">
+        SELECT 1
+        FROM (SELECT pg_advisory_xact_lock(8080, 1)) AS bootstrap_lock
+    </select>
+
+    <select id="hasAdminRole" resultType="boolean">
+        SELECT EXISTS (
+            SELECT 1 FROM user_role WHERE role_code = 'ADMIN'
+        )
+    </select>
+
+    <insert id="insertUser">
+        INSERT INTO app_user (id, email, password_hash, name, phone, status)
+        VALUES (#{id,typeHandler=org.apache.ibatis.type.ObjectTypeHandler},
+                #{email}, #{passwordHash}, #{name}, #{phone}, 'ACTIVE')
+    </insert>
+
+    <insert id="insertRole">
+        INSERT INTO user_role (user_id, role_code)
+        VALUES (#{userId,typeHandler=org.apache.ibatis.type.ObjectTypeHandler}, #{roleCode})
+    </insert>
+
+    <insert id="insertTechnicianProfile">
+        INSERT INTO technician_profile (id, user_id, approval_status, active)
+        VALUES (#{id,typeHandler=org.apache.ibatis.type.ObjectTypeHandler},
+                #{userId,typeHandler=org.apache.ibatis.type.ObjectTypeHandler}, 'PENDING', false)
+    </insert>
+
+    <select id="findByEmail" resultMap="memberRow">
+        SELECT id, email, password_hash, name, phone, status, auth_version
+        FROM app_user
+        WHERE lower(email) = lower(#{email}) AND deleted_at IS NULL
+    </select>
+
+    <select id="findById" resultMap="memberRow">
+        SELECT id, email, password_hash, name, phone, status, auth_version
+        FROM app_user
+        WHERE id = #{id,typeHandler=org.apache.ibatis.type.ObjectTypeHandler} AND deleted_at IS NULL
+    </select>
+
+    <select id="findAll" resultMap="memberRow">
+        SELECT id, email, password_hash, name, phone, status, auth_version
+        FROM app_user
+        WHERE deleted_at IS NULL
+        ORDER BY created_at DESC, id
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countAccounts" resultType="long">
+        SELECT count(*) FROM app_user WHERE deleted_at IS NULL
+    </select>
+
+    <update id="updateProfile">
+        UPDATE app_user
+        SET name = #{name}, phone = #{phone}, updated_at = now()
+        WHERE id = #{id,typeHandler=org.apache.ibatis.type.ObjectTypeHandler} AND deleted_at IS NULL
+    </update>
+
+    <update id="updatePassword">
+        UPDATE app_user
+        SET password_hash = #{passwordHash}, auth_version = auth_version + 1, updated_at = now()
+        WHERE id = #{id,typeHandler=org.apache.ibatis.type.ObjectTypeHandler} AND deleted_at IS NULL
+    </update>
+
+    <update id="invalidateTokens">
+        UPDATE app_user
+        SET auth_version = auth_version + 1, updated_at = now()
+        WHERE id = #{id,typeHandler=org.apache.ibatis.type.ObjectTypeHandler} AND deleted_at IS NULL
+    </update>
+
+    <delete id="deleteRoles">
+        DELETE FROM user_role
+        WHERE user_id = #{id,typeHandler=org.apache.ibatis.type.ObjectTypeHandler}
+    </delete>
+
+    <select id="findRoles" resultType="string">
+        SELECT role_code
+        FROM user_role
+        WHERE user_id = #{userId,typeHandler=org.apache.ibatis.type.ObjectTypeHandler}
+        ORDER BY role_code
+    </select>
+
+    <update id="updateStatus">
+        UPDATE app_user
+        SET status = #{status}, auth_version = auth_version + 1, updated_at = now()
+        WHERE id = #{id,typeHandler=org.apache.ibatis.type.ObjectTypeHandler} AND deleted_at IS NULL
+    </update>
+
+    <select id="isActiveTokenVersion" resultType="boolean">
+        SELECT EXISTS (
+            SELECT 1 FROM app_user
+            WHERE id = #{id,typeHandler=org.apache.ibatis.type.ObjectTypeHandler} AND status = 'ACTIVE'
+              AND auth_version = #{authVersion} AND deleted_at IS NULL
+        )
+    </select>
+
+    <update id="updateLastLogin">
+        UPDATE app_user
+        SET last_login_at = now(), updated_at = now()
+        WHERE id = #{id,typeHandler=org.apache.ibatis.type.ObjectTypeHandler}
+    </update>
+</mapper>

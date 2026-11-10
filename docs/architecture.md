@@ -123,6 +123,7 @@ flowchart TB
 | Spring Security | 인증, 역할 및 요청 접근 권한 검증 |
 | REST API Controller | 요청 검증, 서비스 호출, 응답 DTO 반환 |
 | 업무 모듈 | 각 도메인의 업무 규칙과 상태 전이 처리 |
+| MyBatis Mapper | Repository의 SQL 실행 및 PostgreSQL 결과 매핑 |
 | PostgreSQL | 사용자, 요청, 견적, 예약, 결제 및 작업 데이터 저장 |
 | 파일 저장소 | 이미지 원본과 작업 증빙 파일 저장 |
 | Vision AI API | 이미지 및 설치 환경 분석 |

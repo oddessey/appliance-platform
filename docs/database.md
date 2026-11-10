@@ -34,9 +34,11 @@
 | Boolean | `boolean` |
 | JSON | 유연한 AI 분석 결과·가격 조건에 한해 `jsonb` |
 | DDL 관리 | Flyway |
-| ORM | Spring Data JPA 기준. 복잡 조회는 명시적 쿼리 허용 |
+| 데이터 접근 | MyBatis Mapper 인터페이스와 XML 매퍼 |
 
 UUID 생성은 애플리케이션에서 수행하거나 PostgreSQL UUID 함수를 사용한다. 두 방식을 한 테이블에서 혼용하지 않는다.
+
+애플리케이션의 모든 SQL 읽기·쓰기는 MyBatis Mapper를 통해 수행한다. 도메인별 Repository는 업무 계층에 대한 데이터 접근 경계로 유지하고, SQL은 `backend/src/main/resources/mapper/` 아래의 XML 매퍼에 둔다. 스키마 생성·변경은 Flyway 마이그레이션만 담당하며 MyBatis는 DDL을 관리하지 않는다.
 
 ## 3. 논리 ERD
 
