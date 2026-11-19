@@ -34,6 +34,42 @@ $env:OPENAI_API_KEY = "발급한 OpenAI API 키"
 
 필요한 경우 `OPENAI_MODEL` 환경변수로 모델을 변경할 수 있으며 기본값은 `gpt-4o-mini`입니다. 제품 인식 요청 이미지는 OpenAI로 전송되며 서버에는 저장되지 않습니다.
 
+## 토스페이먼츠 결제 연동
+
+토스페이먼츠 카드 결제를 사용하려면 백엔드와 프런트엔드가 아래 환경변수를 공유하는 배포 환경에서 실행됩니다. 브라우저의 토스페이먼츠 SDK는 결제 위젯에 사용되며 카드번호와 CVC는 백엔드로 전송되지 않습니다.
+
+```powershell
+$env:TOSS_PAYMENTS_CLIENT_KEY = "토스페이먼츠 클라이언트 키"
+$env:TOSS_PAYMENTS_SECRET_KEY = "토스페이먼츠 시크릿 키"
+$env:TOSS_PAYMENTS_BASE_URL = "https://api.tosspayments.com"
+$env:TOSS_PAYMENTS_WEBHOOK_SECRET = "토스페이먼츠 웹훅 서명 검증 키"
+$env:APP_BASE_URL = "http://localhost:5173"
+```
+
+결제는 다음 순서로 처리합니다.
+
+1. 고객이 예약을 생성하면 서버가 예약의 견적 금액으로 결제 준비 데이터를 생성합니다.
+2. 프런트엔드는 `Idempotency-Key`와 토스페이먼츠 클라이언트 키를 사용해 카드 결제를 요청합니다.
+3. 결제 성공 리다이렉트에서 서버가 `orderId`, `paymentKey`, 결제 금액을 검증한 뒤 토스페이먼츠 승인 API를 호출합니다.
+4. 승인 성공 시 결제 상태는 `PAID`가 되고 예약은 `CONFIRMED`, 설치 요청은 `RESERVED`로 전환됩니다.
+5. 고객 또는 관리자는 결제 취소 API로 전액 취소 또는 부분 환불을 요청할 수 있습니다.
+
+결제 상태는 `READY`, `IN_PROGRESS`, `PAID`, `FAILED`, `CANCEL_REQUESTED`, `CANCELLED`, `PARTIALLY_REFUNDED`, `REFUNDED`를 사용합니다. 결제 금액은 DB와 결제사 승인 응답 양쪽에서 서버의 견적 금액과 일치해야 합니다.
+
+### 결제 검증
+
+다음 명령으로 로컬 빌드와 자동 테스트를 실행할 수 있습니다.
+
+```powershell
+mvn -f backend/pom.xml test
+mvn -f backend/pom.xml package
+Set-Location frontend
+npm.cmd run build
+```
+
+- 토스페이먼츠 환경변수와 카드 결제 실거래는 외부 계정 자격증명과 테스트 결제 수단이 있어야 별도로 검증해야 합니다.
+- 실제 승인·취소·웹훅 응답은 운영 또는 테스트 상점 자격증명으로 확인한 결과를 배포 기록에 남깁니다.
+
 3. 저장소 루트에서 백엔드를 실행합니다: `mvn -f backend/pom.xml spring-boot:run`.
 4. 프런트엔드에서 `npm install` 및 `npm run dev`를 실행합니다. Vite 개발 서버는 `/api` 요청을 `http://localhost:8080`으로 전달합니다. 최초 관리자 등록 화면은 `/admin/register`입니다.
 
