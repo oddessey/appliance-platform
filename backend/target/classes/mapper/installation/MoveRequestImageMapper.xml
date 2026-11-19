@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.platform.installation.MoveRequestImageMapper">
+
+    <resultMap id="moveRequestImageResponseResult" type="com.platform.installation.MoveRequestImageResponse">
+        <constructor>
+            <idArg column="id" javaType="java.util.UUID"/>
+            <arg column="move_request_id" javaType="java.util.UUID"/>
+            <arg column="move_item_id" javaType="java.util.UUID"/>
+            <arg column="purpose" javaType="java.lang.String"/>
+            <arg column="original_filename" javaType="java.lang.String"/>
+            <arg column="content_type" javaType="java.lang.String"/>
+            <arg column="size_bytes" javaType="long"/>
+            <arg column="created_at" javaType="java.time.OffsetDateTime"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="moveRequestImageFileRowResult" type="com.platform.installation.MoveRequestImageFileRow">
+        <constructor>
+            <arg column="object_key" javaType="java.lang.String"/>
+            <arg column="original_filename" javaType="java.lang.String"/>
+            <arg column="content_type" javaType="java.lang.String"/>
+        </constructor>
+    </resultMap>
+
+    <select id="isOwnedBy" resultType="java.lang.Boolean">
+        SELECT EXISTS (
+            SELECT 1 FROM move_request
+            WHERE id = #{moveRequestId, jdbcType=OTHER}
+              AND customer_id = #{customerId, jdbcType=OTHER}
+        )
+    </select>
+
+    <select id="hasAccess" resultType="java.lang.Boolean">
+        SELECT EXISTS (
+            SELECT 1
+            FROM move_request mr
+            WHERE mr.id = #{moveRequestId, jdbcType=OTHER}
+              AND (
+                mr.customer_id = #{userId, jdbcType=OTHER}
+                OR EXISTS (
+                    SELECT 1
+                    FROM reservation r
+                    JOIN technician_assignment ta ON ta.reservation_id = r.id
+                    JOIN technician_profile tp ON tp.id = ta.technician_id
+                    WHERE r.move_request_id = mr.id
+                      AND tp.user_id = #{userId, jdbcType=OTHER}
+                      AND tp.active = true
+                      AND tp.approval_status = 'APPROVED'
+                      AND ta.status IN (
+                          'PENDING', 'ACCEPTED', 'ON_THE_WAY',
+                          'WORK_STARTED', 'WORK_COMPLETED'
+                      )
+                )
+              )
+        )
+    </select>
+
+    <select id="exists" resultType="java.lang.Boolean">
+        SELECT EXISTS (
+            SELECT 1 FROM move_request WHERE id = #{moveRequestId, jdbcType=OTHER}
+        )
+    </select>
+
+    <select id="moveItemBelongsToRequest" resultType="java.lang.Boolean">
+        SELECT EXISTS (
+            SELECT 1 FROM move_item
+            WHERE id = #{moveItemId, jdbcType=OTHER}
+              AND move_request_id = #{moveRequestId, jdbcType=OTHER}
+        )
+    </select>
+
+    <select id="findCustomerImages" resultMap="moveRequestImageResponseResult">
+        SELECT id, move_request_id, move_item_id, purpose, original_filename,
+               content_type, size_bytes, created_at
+        FROM request_image
+        WHERE move_request_id = #{moveRequestId, jdbcType=OTHER}
+          AND purpose IN ('APPLIANCE', 'INSTALLATION_ENV')
+        ORDER BY created_at, id
+    </select>
+
+    <select id="findCustomerImageFile" resultMap="moveRequestImageFileRowResult">
+        SELECT object_key, original_filename, content_type
+        FROM request_image
+        WHERE id = #{imageId, jdbcType=OTHER}
+          AND move_request_id = #{moveRequestId, jdbcType=OTHER}
+          AND purpose IN ('APPLIANCE', 'INSTALLATION_ENV')
+    </select>
+
+    <select id="insert" resultMap="moveRequestImageResponseResult" affectData="true" flushCache="true">
+        INSERT INTO request_image (
+            id, move_request_id, move_item_id, storage_provider, object_key,
+            original_filename, content_type, size_bytes, purpose, uploaded_by
+        )
+        VALUES (
+            #{imageId, jdbcType=OTHER},
+            #{moveRequestId, jdbcType=OTHER},
+            #{moveItemId, jdbcType=OTHER},
+            'LOCAL',
+            #{objectKey},
+            #{originalFilename},
+            #{contentType},
+            #{sizeBytes},
+            #{purpose},
+            #{uploadedBy, jdbcType=OTHER}
+        )
+        RETURNING id, move_request_id, move_item_id, purpose, original_filename,
+                  content_type, size_bytes, created_at
+    </select>
+</mapper>

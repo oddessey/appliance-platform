@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.platform.payment.PaymentMapper">
+    <resultMap id="paymentState" type="com.platform.payment.PaymentMapper$PaymentState">
+        <constructor>
+            <arg column="id" javaType="java.util.UUID" typeHandler="com.platform.reservation.UuidTypeHandler"/>
+            <arg column="reservation_id" javaType="java.util.UUID" typeHandler="com.platform.reservation.UuidTypeHandler"/>
+            <arg column="request_id" javaType="java.util.UUID" typeHandler="com.platform.reservation.UuidTypeHandler"/>
+            <arg column="customer_id" javaType="java.util.UUID" typeHandler="com.platform.reservation.UuidTypeHandler"/>
+            <arg column="reservation_status" javaType="java.lang.String"/>
+            <arg column="payment_status" javaType="java.lang.String"/>
+            <arg column="amount" javaType="java.math.BigDecimal"/>
+            <arg column="quote_amount" javaType="java.math.BigDecimal"/>
+            <arg column="order_id" javaType="java.lang.String"/>
+            <arg column="payment_key" javaType="java.lang.String"/>
+            <arg column="customer_name" javaType="java.lang.String"/>
+            <arg column="request_no" javaType="java.lang.String"/>
+        </constructor>
+    </resultMap>
+
+    <select id="findReservationForPayment" resultMap="paymentState">
+        SELECT r.id AS reservation_id, mr.id AS request_id, mr.customer_id,
+               r.status AS reservation_status, p.status AS payment_status,
+               p.id, p.amount, q.total_amount AS quote_amount, p.order_id, p.payment_key,
+               customer.name AS customer_name, mr.request_no
+        FROM reservation r
+        JOIN move_request mr ON mr.id = r.move_request_id
+        JOIN quote q ON q.id = r.quote_id
+        JOIN app_user customer ON customer.id = mr.customer_id
+        LEFT JOIN payment p ON p.reservation_id = r.id
+        WHERE r.id = #{reservationId,typeHandler=com.platform.reservation.UuidTypeHandler}
+          AND (#{customerId} IS NULL OR mr.customer_id = #{customerId,typeHandler=com.platform.reservation.UuidTypeHandler})
+        LIMIT 1
+    </select>
+
+    <select id="findPaymentByOrderId" resultMap="paymentState">
+        SELECT p.id, p.reservation_id, mr.id AS request_id, mr.customer_id,
+               r.status AS reservation_status, p.status AS payment_status,
+               p.amount, q.total_amount AS quote_amount, p.order_id, p.payment_key,
+               customer.name AS customer_name, mr.request_no
+        FROM payment p
+        JOIN reservation r ON r.id = p.reservation_id
+        JOIN move_request mr ON mr.id = r.move_request_id
+        JOIN quote q ON q.id = r.quote_id
+        JOIN app_user customer ON customer.id = mr.customer_id
+        WHERE p.order_id = #{orderId}
+    </select>
+
+    <select id="findPaymentById" resultMap="paymentState">
+        SELECT p.id, p.reservation_id, mr.id AS request_id, mr.customer_id,
+               r.status AS reservation_status, p.status AS payment_status,
+               p.amount, q.total_amount AS quote_amount, p.order_id, p.payment_key,
+               customer.name AS customer_name, mr.request_no
+        FROM payment p
+        JOIN reservation r ON r.id = p.reservation_id
+        JOIN move_request mr ON mr.id = r.move_request_id
+        JOIN quote q ON q.id = r.quote_id
+        JOIN app_user customer ON customer.id = mr.customer_id
+        WHERE p.id = #{paymentId,typeHandler=com.platform.reservation.UuidTypeHandler}
+          AND (#{customerId} IS NULL OR mr.customer_id = #{customerId,typeHandler=com.platform.reservation.UuidTypeHandler})
+    </select>
+
+    <insert id="insertPayment">
+        INSERT INTO payment (id, reservation_id, payment_provider, order_id, amount, status, idempotency_key)
+        VALUES (#{id,typeHandler=com.platform.reservation.UuidTypeHandler},
+                #{reservationId,typeHandler=com.platform.reservation.UuidTypeHandler},
+                'TOSS_PAYMENTS', #{orderId}, #{amount}, 'READY', #{idempotencyKey})
+    </insert>
+
+    <update id="setPaymentInProgress">
+        UPDATE payment SET payment_key = #{paymentKey}, status = 'IN_PROGRESS', updated_at = now()
+        WHERE id = #{id,typeHandler=com.platform.reservation.UuidTypeHandler}
+    </update>
+
+    <update id="markPaymentPaid">
+        UPDATE payment SET payment_key = #{paymentKey}, status = 'PAID', method = #{method},
+                           approved_at = #{approvedAt}, paid_at = now(), updated_at = now()
+        WHERE id = #{id,typeHandler=com.platform.reservation.UuidTypeHandler}
+    </update>
+
+    <update id="markPaymentFailed">
+        UPDATE payment SET status = 'FAILED', updated_at = now()
+        WHERE id = #{id,typeHandler=com.platform.reservation.UuidTypeHandler}
+    </update>
+
+    <update id="confirmReservation">
+        UPDATE reservation SET status = 'CONFIRMED', confirmed_at = now(), updated_at = now()
+        WHERE id = #{reservationId,typeHandler=com.platform.reservation.UuidTypeHandler}
+          AND status = 'PENDING'
+    </update>
+
+    <update id="markRequestReserved">
+        UPDATE move_request SET status = 'RESERVED', updated_at = now()
+        WHERE id = #{requestId,typeHandler=com.platform.reservation.UuidTypeHandler} AND status = 'QUOTED'
+    </update>
+
+    <update id="markCancelRequested">
+        UPDATE payment SET status = 'CANCEL_REQUESTED', cancelled_amount = #{cancelledAmount},
+                           updated_at = now()
+        WHERE id = #{id,typeHandler=com.platform.reservation.UuidTypeHandler}
+    </update>
+
+    <update id="markCancelled">
+        UPDATE payment SET status = 'CANCELLED', updated_at = now()
+        WHERE id = #{id,typeHandler=com.platform.reservation.UuidTypeHandler}
+    </update>
+
+    <insert id="recordPaymentEvent">
+        INSERT INTO payment_event (id, payment_id, provider_event_id, event_type, payload_summary,
+                                   processed_at, processing_status)
+        VALUES (#{id,typeHandler=com.platform.reservation.UuidTypeHandler},
+                #{paymentId,typeHandler=com.platform.reservation.UuidTypeHandler},
+                #{providerEventId}, #{eventType},
+                CAST(#{payloadSummary} AS jsonb), now(), 'PROCESSED')
+        ON CONFLICT DO NOTHING
+    </insert>
+</mapper>

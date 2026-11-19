@@ -41,7 +41,7 @@ class ReservationServiceTest {
     private ReservationService service;
 
     @Test
-    void createsConfirmedReservationFromLatestAcceptedQuote() {
+    void createsPaymentPendingReservationFromLatestAcceptedQuote() {
         UUID customerId = UUID.randomUUID();
         UUID requestId = UUID.randomUUID();
         UUID quoteId = UUID.randomUUID();
@@ -53,20 +53,19 @@ class ReservationServiceTest {
         when(repository.createReservation(any(), any(), eq(requestId), eq(quoteId),
                 any(), any(), eq(null), eq(IDEMPOTENCY_KEY), any()))
                 .thenAnswer(invocation -> Optional.of(invocation.getArgument(0)));
-        when(repository.markRequestReserved(requestId)).thenReturn(true);
         when(repository.findCustomerReservation(any(UUID.class), eq(customerId)))
                 .thenAnswer(invocation -> Optional.of(response(
-                        invocation.getArgument(0), requestId, quoteId, "CONFIRMED")));
+                        invocation.getArgument(0), requestId, quoteId, "PENDING")));
 
         ReservationResponse result = service.createReservation(request, IDEMPOTENCY_KEY, customerId);
 
-        assertEquals("CONFIRMED", result.status());
+        assertEquals("PENDING", result.status());
         verify(repository).createReservation(eq(result.id()), any(), eq(requestId), eq(quoteId),
                 eq(request.scheduledStartAt()), eq(request.scheduledEndAt()), eq(null),
                 eq(IDEMPOTENCY_KEY), any());
-        verify(repository).markRequestReserved(requestId);
-        verify(repository).recordAudit(eq(customerId), eq(result.id()), eq("RESERVATION_CONFIRMED"),
-                eq(null), eq("CONFIRMED"), any(), any());
+        verify(repository, never()).markRequestReserved(requestId);
+        verify(repository).recordAudit(eq(customerId), eq(result.id()), eq("RESERVATION_PAYMENT_PENDING"),
+                eq(null), eq("PENDING"), any(), any());
     }
 
     @Test

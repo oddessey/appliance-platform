@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { bootstrapAdmin, getCurrentMember, logIn, logOut, signUp } from "./api/auth";
 import { ApiError, getAccessToken, setAccessToken } from "./api/client";
+import { confirmPayment } from "./api/payments";
 import { AccountSettings } from "./components/AccountSettings";
 import { AdminScreen } from "./screens/AdminScreen";
 import { CustomerScreen } from "./screens/CustomerScreen";
@@ -103,6 +104,38 @@ export function App() {
     }
     window.addEventListener("popstate", syncPath);
     return () => window.removeEventListener("popstate", syncPath);
+  }, []);
+
+  useEffect(() => {
+    const search = new URLSearchParams(window.location.search);
+    const paymentKey = search.get("paymentKey");
+    const orderId = search.get("orderId");
+    const amount = search.get("amount");
+    if (!window.location.pathname.startsWith("/customer/payment/")
+        || !paymentKey || !orderId || !amount) return;
+    if (window.location.pathname.endsWith("/fail")) {
+      setErrorMessage(search.get("message") || "결제가 취소되었거나 실패했습니다.");
+      return;
+    }
+    const numericAmount = Number(amount);
+    if (!Number.isSafeInteger(numericAmount) || numericAmount <= 0) {
+      setErrorMessage("결제 금액이 올바르지 않습니다.");
+      return;
+    }
+    let active = true;
+    confirmPayment({ paymentKey, orderId, amount: numericAmount })
+      .then(() => {
+        if (!active) return;
+        setErrorMessage(null);
+        window.history.replaceState({}, "", "/customer");
+        setPath("/customer");
+      })
+      .catch((error: unknown) => {
+        if (active) setErrorMessage(toMessage(error));
+      });
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {

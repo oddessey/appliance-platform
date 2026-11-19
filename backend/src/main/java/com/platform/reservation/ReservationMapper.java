@@ -92,6 +92,8 @@ public interface ReservationMapper {
 
     int markRequestReserved(@Param("requestId") UUID requestId);
 
+    int confirmReservation(@Param("reservationId") UUID reservationId);
+
     int cancelReservation(@Param("reservationId") UUID reservationId);
 
     int returnRequestToQuoted(@Param("requestId") UUID requestId);

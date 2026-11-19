@@ -6,6 +6,7 @@ import {
   createReservation,
   getReservations,
 } from "../api/reservations";
+import { prepareReservationPayment } from "../api/payments";
 import { ApiError } from "../api/client";
 import type { Reservation } from "../types/reservation";
 
@@ -131,13 +132,41 @@ export function CustomerReservations({ requestId, quoteId }: CustomerReservation
     setError(null);
     setMessage(null);
     try {
-      await createReservation({
+      const reservation = await createReservation({
         moveRequestId: requestId,
         quoteId,
         ...interval,
         customerMemo: form.memo.trim() || undefined,
       }, idempotencyKey);
-      setMessage("예약이 확정되었습니다.");
+      const payment = await prepareReservationPayment(
+        reservation.id,
+        `payment-${crypto.randomUUID()}`,
+      );
+      const tossPayments = (window as unknown as {
+        TossPayments: (clientKey: string) => {
+          payment: (options: { customerKey: string }) => {
+            requestPayment: (options: {
+              method: "CARD";
+              amount: { currency: "KRW"; value: number };
+              orderId: string;
+              orderName: string;
+              customerName: string;
+              successUrl: string;
+              failUrl: string;
+            }) => Promise<unknown>;
+          };
+        };
+      }).TossPayments(payment.clientKey);
+      const paymentWidget = tossPayments.payment({ customerKey: idempotencyKey });
+      await paymentWidget.requestPayment({
+        method: "CARD",
+        amount: { currency: "KRW", value: payment.amount },
+        orderId: payment.orderId,
+        orderName: payment.orderName,
+        customerName: payment.customerName,
+        successUrl: payment.successUrl,
+        failUrl: payment.failUrl,
+      });
       setIdempotencyKey(createIdempotencyKey());
       await loadReservations();
       setAvailability(null);

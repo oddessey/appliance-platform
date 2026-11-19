@@ -115,15 +115,12 @@ public class ReservationService {
                 }
                 return existing;
             }
-            if (!repository.markRequestReserved(request.moveRequestId())) {
-                throw new ReservationNotAcceptableException();
-            }
         } catch (DataIntegrityViolationException exception) {
             throw new ReservationConflictException();
         }
 
-        repository.recordAudit(customerId, reservationId, "RESERVATION_CONFIRMED", null,
-                "CONFIRMED", request.scheduledStartAt(), request.scheduledEndAt());
+        repository.recordAudit(customerId, reservationId, "RESERVATION_PAYMENT_PENDING", null,
+                "PENDING", request.scheduledStartAt(), request.scheduledEndAt());
         return repository.findCustomerReservation(reservationId, customerId)
                 .orElseThrow(ReservationNotFoundException::new);
     }

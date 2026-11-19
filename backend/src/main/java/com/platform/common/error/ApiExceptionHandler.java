@@ -26,6 +26,8 @@ import com.platform.pricing.QuoteNotAcceptableException;
 import com.platform.pricing.QuoteNotFoundException;
 import com.platform.reservation.ActiveReservationExistsException;
 import com.platform.reservation.IdempotencyKeyConflictException;
+import com.platform.payment.PaymentException;
+import com.platform.payment.PaymentProviderException;
 import com.platform.reservation.InvalidReservationException;
 import com.platform.reservation.InvalidReservationPageException;
 import com.platform.reservation.ReservationConflictException;
@@ -310,6 +312,25 @@ public class ApiExceptionHandler {
     public ResponseEntity<ApiErrorResponse> handleIdempotencyKeyConflict(HttpServletRequest request) {
         return response(request, HttpStatus.CONFLICT, "IDEMPOTENCY_KEY_CONFLICT",
                 "같은 멱등 키를 다른 예약 요청에 사용할 수 없습니다.", List.of());
+    }
+
+    @ExceptionHandler(PaymentException.class)
+    public ResponseEntity<ApiErrorResponse> handlePaymentException(
+            PaymentException exception,
+            HttpServletRequest request
+    ) {
+        return response(request, HttpStatus.CONFLICT, "PAYMENT_NOT_ACCEPTABLE",
+                exception.getMessage(), List.of());
+    }
+
+    @ExceptionHandler(PaymentProviderException.class)
+    public ResponseEntity<ApiErrorResponse> handlePaymentProviderException(
+            PaymentProviderException exception,
+            HttpServletRequest request
+    ) {
+        LOGGER.error("Toss Payments provider request failed", exception);
+        return response(request, HttpStatus.BAD_GATEWAY, "PAYMENT_PROVIDER_ERROR",
+                exception.getMessage(), List.of());
     }
 
     @ExceptionHandler(InvalidTechnicianEvidenceException.class)

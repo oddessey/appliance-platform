@@ -62,6 +62,9 @@ public class SecurityConfig {
                                 "/api/v1/auth/signup",
                                 "/api/v1/auth/bootstrap-admin",
                                 "/api/v1/auth/login").permitAll()
+                        .requestMatchers(HttpMethod.POST,
+                                "/api/v1/webhooks/payments/toss",
+                                "/api/v1/webhooks/payments/tosspayments").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/appliance-types").permitAll()
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/v1/technicians/**", "/api/v1/assignments/**").hasRole("TECHNICIAN")

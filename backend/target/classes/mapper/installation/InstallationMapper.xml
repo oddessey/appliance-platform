@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.platform.installation.InstallationMapper">
+
+    <resultMap id="installationHistoryItemResult" type="com.platform.installation.InstallationHistoryItem">
+        <constructor>
+            <idArg column="id" javaType="java.util.UUID"/>
+            <arg column="request_no" javaType="java.lang.String"/>
+            <arg column="status" javaType="java.lang.String"/>
+            <arg column="appliance_type_code" javaType="java.lang.String"/>
+            <arg column="appliance_type_name" javaType="java.lang.String"/>
+            <arg column="origin_address" javaType="java.lang.String"/>
+            <arg column="destination_address" javaType="java.lang.String"/>
+            <arg column="desired_start_at" javaType="java.time.OffsetDateTime"/>
+            <arg column="created_at" javaType="java.time.OffsetDateTime"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="adminAiAnalysisSummaryResult" type="com.platform.installation.AdminAiAnalysisSummary">
+        <constructor>
+            <idArg column="id" javaType="java.util.UUID"/>
+            <arg column="status" javaType="java.lang.String"/>
+            <arg column="provider" javaType="java.lang.String"/>
+            <arg column="model_name" javaType="java.lang.String"/>
+            <arg column="confidence" javaType="java.math.BigDecimal"/>
+            <arg column="result_json" javaType="java.lang.String"/>
+            <arg column="error_code" javaType="java.lang.String"/>
+            <arg column="error_message" javaType="java.lang.String"/>
+            <arg column="created_at" javaType="java.time.OffsetDateTime"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="adminInstallationSummaryResult" type="com.platform.installation.AdminInstallationSummary">
+        <constructor>
+            <idArg column="id" javaType="java.util.UUID"/>
+            <arg column="request_no" javaType="java.lang.String"/>
+            <arg column="customer_name" javaType="java.lang.String"/>
+            <arg column="customer_email" javaType="java.lang.String"/>
+            <arg column="status" javaType="java.lang.String"/>
+            <arg column="appliance_summary" javaType="java.lang.String"/>
+            <arg column="origin_address" javaType="java.lang.String"/>
+            <arg column="destination_address" javaType="java.lang.String"/>
+            <arg column="desired_start_at" javaType="java.time.OffsetDateTime"/>
+            <arg column="submitted_at" javaType="java.time.OffsetDateTime"/>
+            <arg column="created_at" javaType="java.time.OffsetDateTime"/>
+            <arg column="reservation_id" javaType="java.util.UUID"/>
+            <arg column="reservation_no" javaType="java.lang.String"/>
+            <arg column="reservation_status" javaType="java.lang.String"/>
+            <arg column="technician_assignment_status" javaType="java.lang.String"/>
+            <arg column="technician_profile_id" javaType="java.util.UUID"/>
+            <arg column="technician_name" javaType="java.lang.String"/>
+            <arg resultMap="adminAiAnalysisSummaryResult" columnPrefix="analysis_"
+                 javaType="com.platform.installation.AdminAiAnalysisSummary"/>
+        </constructor>
+    </resultMap>
+
+    <select id="insertMoveRequest" resultType="java.time.OffsetDateTime" affectData="true" flushCache="true">
+        INSERT INTO move_request (
+            id, request_no, customer_id, status, origin_address,
+            destination_address, desired_start_at, submitted_at
+        )
+        VALUES (
+            #{id, jdbcType=OTHER},
+            #{requestNo},
+            #{customerId, jdbcType=OTHER},
+            'SUBMITTED',
+            #{originAddress},
+            #{destinationAddress},
+            #{desiredStartAt},
+            now()
+        )
+        RETURNING created_at
+    </select>
+
+    <insert id="insertMoveItem">
+        INSERT INTO move_item (
+            id, move_request_id, appliance_type_id, quantity, installation_conditions
+        )
+        VALUES (
+            #{id, jdbcType=OTHER},
+            #{moveRequestId, jdbcType=OTHER},
+            #{applianceTypeId, jdbcType=OTHER},
+            1,
+            jsonb_build_object(
+                'carryingDistanceMeters', #{carryingDistanceMeters},
+                'floorCount', #{floorCount},
+                'additionalPipingMeters', #{additionalPipingMeters}
+            )
+        )
+    </insert>
+
+    <select id="findByCustomerId" resultMap="installationHistoryItemResult">
+        SELECT mr.id, mr.request_no, mr.status, at.code AS appliance_type_code,
+               at.name AS appliance_type_name, mr.origin_address, mr.destination_address,
+               mr.desired_start_at, mr.created_at
+        FROM move_request mr
+        JOIN move_item mi ON mi.move_request_id = mr.id
+        JOIN appliance_type at ON at.id = mi.appliance_type_id
+        WHERE mr.customer_id = #{customerId, jdbcType=OTHER}
+        ORDER BY mr.created_at DESC, mr.id
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countByCustomerId" resultType="java.lang.Long">
+        SELECT count(*) FROM move_request WHERE customer_id = #{customerId, jdbcType=OTHER}
+    </select>
+
+    <select id="findForAdmin" resultMap="adminInstallationSummaryResult">
+        SELECT mr.id, mr.request_no, u.name AS customer_name, u.email AS customer_email,
+               mr.status, item_summary.appliance_summary, mr.origin_address,
+               mr.destination_address, mr.desired_start_at, mr.submitted_at, mr.created_at,
+               current_reservation.id AS reservation_id,
+               current_reservation.reservation_no,
+               current_reservation.status AS reservation_status,
+               current_assignment.status AS technician_assignment_status,
+               current_assignment.technician_profile_id,
+               current_assignment.technician_name,
+               analysis.id AS analysis_id, analysis.status AS analysis_status,
+               analysis.provider AS analysis_provider, analysis.model_name AS analysis_model_name,
+               analysis.confidence AS analysis_confidence,
+               analysis.result_json::text AS analysis_result_json,
+               analysis.error_code AS analysis_error_code,
+               analysis.error_message AS analysis_error_message,
+               analysis.created_at AS analysis_created_at
+        FROM move_request mr
+        JOIN app_user u ON u.id = mr.customer_id
+        LEFT JOIN LATERAL (
+            SELECT string_agg(at.name || ' × ' || mi.quantity, ', ' ORDER BY at.name) AS appliance_summary
+            FROM move_item mi
+            JOIN appliance_type at ON at.id = mi.appliance_type_id
+            WHERE mi.move_request_id = mr.id
+        ) item_summary ON true
+        LEFT JOIN LATERAL (
+            SELECT r.id, r.reservation_no, r.status
+            FROM reservation r
+            WHERE r.move_request_id = mr.id
+            ORDER BY CASE WHEN r.status IN ('PENDING', 'CONFIRMED', 'RESCHEDULE_REQUESTED')
+                          THEN 0 ELSE 1 END,
+                     r.created_at DESC, r.id DESC
+            LIMIT 1
+        ) current_reservation ON true
+        LEFT JOIN LATERAL (
+            SELECT ta.status, tp.id AS technician_profile_id, technician.name AS technician_name
+            FROM technician_assignment ta
+            JOIN technician_profile tp ON tp.id = ta.technician_id
+            JOIN app_user technician ON technician.id = tp.user_id
+            WHERE ta.reservation_id = current_reservation.id
+            ORDER BY ta.assigned_at DESC, ta.id DESC
+            LIMIT 1
+        ) current_assignment ON true
+        LEFT JOIN LATERAL (
+            SELECT aa.id, aa.status, aa.provider, aa.model_name, aa.confidence,
+                   aa.result_json, aa.error_code, aa.error_message, aa.created_at
+            FROM ai_analysis aa
+            WHERE aa.move_request_id = mr.id
+            ORDER BY aa.created_at DESC, aa.id DESC
+            LIMIT 1
+        ) analysis ON true
+        WHERE (NOT #{reviewRequired} OR mr.status = 'NEEDS_REVIEW'
+               OR analysis.status IN ('FAILED', 'NEEDS_REVIEW'))
+        ORDER BY mr.created_at DESC, mr.id DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countForAdmin" resultType="java.lang.Long">
+        SELECT count(*)
+        FROM move_request mr
+        LEFT JOIN LATERAL (
+            SELECT aa.status
+            FROM ai_analysis aa
+            WHERE aa.move_request_id = mr.id
+            ORDER BY aa.created_at DESC, aa.id DESC
+            LIMIT 1
+        ) analysis ON true
+        WHERE (NOT #{reviewRequired} OR mr.status = 'NEEDS_REVIEW'
+               OR analysis.status IN ('FAILED', 'NEEDS_REVIEW'))
+    </select>
+</mapper>

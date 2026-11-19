@@ -36,6 +36,13 @@ technician:
   assignment:
     automatic-enabled: ${TECHNICIAN_ASSIGNMENT_AUTOMATIC_ENABLED:false}
 
+toss:
+  payments:
+    client-key: ${TOSS_PAYMENTS_CLIENT_KEY:}
+    secret-key: ${TOSS_PAYMENTS_SECRET_KEY:}
+    base-url: ${TOSS_PAYMENTS_BASE_URL:https://api.tosspayments.com}
+    webhook-secret: ${TOSS_PAYMENTS_WEBHOOK_SECRET:}
+
 openai:
   api-key: ${OPENAI_API_KEY:}
   model: ${OPENAI_MODEL:gpt-4o-mini}

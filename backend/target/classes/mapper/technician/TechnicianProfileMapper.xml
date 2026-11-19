@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.platform.technician.mapper.TechnicianProfileMapper">
+    <resultMap id="profileRow" type="com.platform.technician.mapper.TechnicianProfileMapper$TechnicianProfileRow">
+        <constructor>
+            <idArg column="id" javaType="java.util.UUID"/>
+            <arg column="approval_status" javaType="string"/>
+            <arg column="active" javaType="boolean"/>
+            <arg column="business_name" javaType="string"/>
+            <arg column="license_info" javaType="string"/>
+        </constructor>
+    </resultMap>
+    <resultMap id="availabilityResponse" type="com.platform.technician.TechnicianAvailabilityResponse">
+        <constructor>
+            <arg column="day_of_week" javaType="int"/>
+            <arg column="start_time" javaType="java.time.LocalTime"/>
+            <arg column="end_time" javaType="java.time.LocalTime"/>
+        </constructor>
+    </resultMap>
+
+    <select id="findByUserId" resultMap="profileRow">
+        SELECT id, approval_status, active, business_name, license_info
+        FROM technician_profile
+        WHERE user_id = #{userId}
+    </select>
+
+    <select id="upsertProfile" resultType="java.util.UUID" affectData="true" flushCache="true" useCache="false">
+        INSERT INTO technician_profile (id, user_id, approval_status, business_name, license_info, active)
+        VALUES (#{id}, #{userId}, 'PENDING', #{businessName}, #{licenseInfo}, false)
+        ON CONFLICT (user_id) DO UPDATE
+        SET business_name = EXCLUDED.business_name, license_info = EXCLUDED.license_info,
+            approval_status = CASE
+                WHEN technician_profile.license_info IS DISTINCT FROM EXCLUDED.license_info
+                    THEN 'PENDING'
+                ELSE technician_profile.approval_status
+            END,
+            active = CASE
+                WHEN technician_profile.license_info IS DISTINCT FROM EXCLUDED.license_info
+                    THEN false
+                ELSE technician_profile.active
+            END,
+            updated_at = now()
+        RETURNING id
+    </select>
+
+    <insert id="recordLicenseInformationChange">
+        INSERT INTO audit_log
+            (id, actor_user_id, action, entity_type, entity_id, before_summary, after_summary)
+        VALUES (#{id}, #{userId}, 'TECHNICIAN_CREDENTIALS_CHANGED', 'TECHNICIAN_PROFILE', #{profileId},
+                jsonb_build_object('approvalStatus', #{previousApprovalStatus}, 'active', #{previousActive}),
+                jsonb_build_object('approvalStatus', 'PENDING', 'active', false, 'credentialsUpdated', true))
+    </insert>
+
+    <delete id="deleteServiceAreas">
+        DELETE FROM technician_service_area WHERE technician_id = #{profileId}
+    </delete>
+
+    <insert id="insertServiceArea">
+        INSERT INTO technician_service_area (id, technician_id, region_code, active)
+        VALUES (#{id}, #{profileId}, #{region}, true)
+    </insert>
+
+    <delete id="deleteCapabilities">
+        DELETE FROM technician_capability WHERE technician_id = #{profileId}
+    </delete>
+
+    <insert id="insertCapability">
+        INSERT INTO technician_capability (technician_id, appliance_type_id, active)
+        SELECT #{profileId}, id, true FROM appliance_type WHERE code = #{code} AND active = true
+    </insert>
+
+    <delete id="deleteAvailability">
+        DELETE FROM technician_availability WHERE technician_id = #{profileId}
+    </delete>
+
+    <insert id="insertAvailability">
+        INSERT INTO technician_availability
+            (id, technician_id, day_of_week, start_time, end_time, active)
+        VALUES (#{id}, #{profileId}, #{dayOfWeek}, #{startTime}, #{endTime}, true)
+    </insert>
+
+    <select id="findServiceAreas" resultType="string">
+        SELECT region_code FROM technician_service_area
+        WHERE technician_id = #{profileId} AND active = true ORDER BY region_code
+    </select>
+
+    <select id="findCapabilities" resultType="string">
+        SELECT appliance_type.code
+        FROM technician_capability
+        JOIN appliance_type ON appliance_type.id = technician_capability.appliance_type_id
+        WHERE technician_capability.technician_id = #{profileId} AND technician_capability.active = true
+        ORDER BY appliance_type.display_order, appliance_type.name
+    </select>
+
+    <select id="findAvailability" resultMap="availabilityResponse">
+        SELECT day_of_week, start_time, end_time
+        FROM technician_availability
+        WHERE technician_id = #{profileId} AND active = true
+        ORDER BY day_of_week, start_time
+    </select>
+</mapper>

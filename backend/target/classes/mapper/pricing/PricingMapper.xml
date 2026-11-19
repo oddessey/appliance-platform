@@ -1,0 +1,408 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.platform.pricing.PricingMapper">
+
+    <resultMap id="priceRule" type="com.platform.pricing.PriceRule">
+        <constructor>
+            <idArg column="id" javaType="java.util.UUID"/>
+            <arg column="rule_code" javaType="java.lang.String"/>
+            <arg column="name" javaType="java.lang.String"/>
+            <arg column="description" javaType="java.lang.String"/>
+            <arg column="appliance_type_code" javaType="java.lang.String"/>
+            <arg column="condition_code" javaType="com.platform.pricing.PriceConditionCode"/>
+            <arg column="calculation_type" javaType="com.platform.pricing.PriceCalculationType"/>
+            <arg column="amount" javaType="java.math.BigDecimal"/>
+            <arg column="priority" javaType="_int"/>
+            <arg column="active" javaType="_boolean"/>
+            <arg column="version" javaType="_int"/>
+            <arg column="valid_from" javaType="java.time.OffsetDateTime"/>
+            <arg column="valid_to" javaType="java.time.OffsetDateTime"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="pricingRequestState" type="com.platform.pricing.PricingRepository$PricingRequestState">
+        <constructor>
+            <arg column="status" javaType="java.lang.String"/>
+            <arg column="quote_accepted" javaType="_boolean"/>
+            <arg column="has_reservation" javaType="_boolean"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="pricingItem" type="com.platform.pricing.PricingRepository$PricingItem">
+        <constructor>
+            <arg column="appliance_type_code" javaType="java.lang.String"/>
+            <arg column="quantity" javaType="_int"/>
+            <arg column="carrying_distance_meters" javaType="java.math.BigDecimal"/>
+            <arg column="floor_count" javaType="java.math.BigDecimal"/>
+            <arg column="additional_piping_meters" javaType="java.math.BigDecimal"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="pricingRequestSummary" type="com.platform.pricing.PricingRequestSummary">
+        <constructor>
+            <idArg column="id" javaType="java.util.UUID"/>
+            <arg column="request_no" javaType="java.lang.String"/>
+            <arg column="status" javaType="java.lang.String"/>
+            <arg column="customer_name" javaType="java.lang.String"/>
+            <arg column="customer_email" javaType="java.lang.String"/>
+            <arg column="appliance_type_code" javaType="java.lang.String"/>
+            <arg column="appliance_type_name" javaType="java.lang.String"/>
+            <arg column="origin_address" javaType="java.lang.String"/>
+            <arg column="destination_address" javaType="java.lang.String"/>
+            <arg column="desired_start_at" javaType="java.time.OffsetDateTime"/>
+            <arg column="created_at" javaType="java.time.OffsetDateTime"/>
+            <arg column="latest_quote_status" javaType="java.lang.String"/>
+            <arg column="latest_quote_total_amount" javaType="java.math.BigDecimal"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="quoteHeader" type="com.platform.pricing.PricingMapper$QuoteHeader">
+        <constructor>
+            <idArg column="id" javaType="java.util.UUID"/>
+            <arg column="quote_no" javaType="java.lang.String"/>
+            <arg column="version_no" javaType="_int"/>
+            <arg column="status" javaType="java.lang.String"/>
+            <arg column="currency" javaType="java.lang.String"/>
+            <arg column="subtotal_amount" javaType="java.math.BigDecimal"/>
+            <arg column="discount_amount" javaType="java.math.BigDecimal"/>
+            <arg column="tax_amount" javaType="java.math.BigDecimal"/>
+            <arg column="total_amount" javaType="java.math.BigDecimal"/>
+            <arg column="issued_at" javaType="java.time.OffsetDateTime"/>
+            <arg column="expires_at" javaType="java.time.OffsetDateTime"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="quoteLine" type="com.platform.pricing.QuoteLineResponse">
+        <constructor>
+            <arg column="line_code" javaType="java.lang.String"/>
+            <arg column="description" javaType="java.lang.String"/>
+            <arg column="quantity" javaType="java.math.BigDecimal"/>
+            <arg column="unit_price" javaType="java.math.BigDecimal"/>
+            <arg column="line_amount" javaType="java.math.BigDecimal"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="quoteLineWithQuoteId" type="com.platform.pricing.PricingMapper$QuoteLineWithQuoteId">
+        <constructor>
+            <arg column="quote_id" javaType="java.util.UUID"/>
+            <arg column="line_code" javaType="java.lang.String"/>
+            <arg column="description" javaType="java.lang.String"/>
+            <arg column="quantity" javaType="java.math.BigDecimal"/>
+            <arg column="unit_price" javaType="java.math.BigDecimal"/>
+            <arg column="line_amount" javaType="java.math.BigDecimal"/>
+        </constructor>
+    </resultMap>
+
+    <resultMap id="quoteAcceptanceState" type="com.platform.pricing.PricingRepository$QuoteAcceptanceState">
+        <constructor>
+            <arg column="request_id" javaType="java.util.UUID"/>
+            <arg column="status" javaType="java.lang.String"/>
+            <arg column="expires_at" javaType="java.time.OffsetDateTime"/>
+            <arg column="request_status" javaType="java.lang.String"/>
+            <arg column="is_latest" javaType="_boolean"/>
+        </constructor>
+    </resultMap>
+
+    <sql id="priceRuleColumns">
+        id, rule_code, name, description,
+        conditions -&gt;&gt; 'applianceTypeCode' AS appliance_type_code,
+        conditions -&gt;&gt; 'conditionCode' AS condition_code,
+        calculation_type, amount, priority, active, version, valid_from, valid_to
+    </sql>
+
+    <select id="findPriceRules" resultMap="priceRule">
+        SELECT <include refid="priceRuleColumns"/>
+        FROM price_rule
+        ORDER BY active DESC, priority DESC, rule_code
+    </select>
+
+    <select id="findPriceRule" resultMap="priceRule">
+        SELECT <include refid="priceRuleColumns"/>
+        FROM price_rule
+        WHERE id = #{id}
+    </select>
+
+    <select id="createPriceRule" resultMap="priceRule" affectData="true" flushCache="true">
+        INSERT INTO price_rule (
+            id, rule_code, name, description, conditions, calculation_type,
+            amount, priority, active, valid_from, valid_to, created_by
+        )
+        VALUES (
+            #{id}, #{request.ruleCode}, #{request.name}, #{request.description},
+            jsonb_build_object(
+                'applianceTypeCode', CAST(#{request.applianceTypeCode} AS text),
+                'conditionCode', CAST(#{request.conditionCode} AS text)
+            ),
+            #{request.calculationType}, #{request.amount}, #{request.priority},
+            #{request.active}, #{request.validFrom}, #{request.validTo}, #{actorId}
+        )
+        RETURNING <include refid="priceRuleColumns"/>
+    </select>
+
+    <select id="updatePriceRule" resultMap="priceRule" affectData="true" flushCache="true">
+        UPDATE price_rule
+        SET rule_code = #{request.ruleCode},
+            name = #{request.name},
+            description = #{request.description},
+            conditions = jsonb_build_object(
+                'applianceTypeCode', CAST(#{request.applianceTypeCode} AS text),
+                'conditionCode', CAST(#{request.conditionCode} AS text)
+            ),
+            calculation_type = #{request.calculationType},
+            amount = #{request.amount},
+            priority = #{request.priority},
+            active = #{request.active},
+            valid_from = #{request.validFrom},
+            valid_to = #{request.validTo},
+            version = version + 1,
+            updated_at = now()
+        WHERE id = #{id}
+        RETURNING <include refid="priceRuleColumns"/>
+    </select>
+
+    <insert id="recordPriceRuleAudit">
+        INSERT INTO audit_log (
+            id, actor_user_id, action, entity_type, entity_id, before_summary, after_summary
+        )
+        VALUES (
+            #{id}, #{actorId}, #{action}, 'PRICE_RULE', #{entityId},
+            CAST(#{beforeSummary} AS jsonb),
+            jsonb_build_object(
+                'ruleCode', #{after.ruleCode}, 'version', #{after.version},
+                'active', #{after.active}, 'amount', #{after.amount},
+                'conditionCode', #{after.conditionCode}
+            )
+        )
+    </insert>
+
+    <insert id="recordQuoteAudit">
+        INSERT INTO audit_log (id, actor_user_id, action, entity_type, entity_id, after_summary)
+        VALUES (
+            #{id}, #{actorId}, #{action}, 'QUOTE', #{quoteId},
+            jsonb_build_object(
+                'quoteNo', CAST(#{quoteNo} AS text),
+                'version', CAST(#{version} AS integer),
+                'totalAmount', CAST(#{total} AS numeric)
+            )
+        )
+    </insert>
+
+    <select id="findEffectivePriceRules" resultMap="priceRule">
+        SELECT <include refid="priceRuleColumns"/>
+        FROM price_rule
+        WHERE active = true
+          AND (valid_from IS NULL OR valid_from &lt;= #{now})
+          AND (valid_to IS NULL OR valid_to &gt; #{now})
+        ORDER BY priority DESC, rule_code
+        FOR SHARE
+    </select>
+
+    <select id="lockPricingRequest" resultMap="pricingRequestState">
+        SELECT mr.status,
+               EXISTS (
+                   SELECT 1 FROM quote q
+                   WHERE q.move_request_id = mr.id AND q.status = 'ACCEPTED'
+               ) AS quote_accepted,
+               EXISTS (
+                   SELECT 1 FROM reservation r WHERE r.move_request_id = mr.id
+               ) AS has_reservation
+        FROM move_request mr
+        WHERE mr.id = #{requestId}
+        FOR UPDATE OF mr
+    </select>
+
+    <select id="findPricingItems" resultMap="pricingItem">
+        SELECT appliance_type.code AS appliance_type_code, mi.quantity,
+               COALESCE((mi.installation_conditions -&gt;&gt; 'carryingDistanceMeters')::numeric, 0)
+                   AS carrying_distance_meters,
+               COALESCE((mi.installation_conditions -&gt;&gt; 'floorCount')::numeric, 0) AS floor_count,
+               COALESCE((mi.installation_conditions -&gt;&gt; 'additionalPipingMeters')::numeric, 0)
+                   AS additional_piping_meters
+        FROM move_item mi
+        JOIN appliance_type ON appliance_type.id = mi.appliance_type_id
+        WHERE mi.move_request_id = #{requestId}
+        ORDER BY mi.created_at, mi.id
+    </select>
+
+    <select id="countPricingRequests" resultType="long">
+        SELECT count(*)
+        FROM move_request mr
+        WHERE mr.status IN ('SUBMITTED', 'QUOTED')
+          AND NOT EXISTS (
+              SELECT 1 FROM quote accepted
+              WHERE accepted.move_request_id = mr.id AND accepted.status = 'ACCEPTED'
+          )
+          AND NOT EXISTS (
+              SELECT 1 FROM reservation r WHERE r.move_request_id = mr.id
+          )
+    </select>
+
+    <select id="findPricingRequests" resultMap="pricingRequestSummary">
+        SELECT mr.id, mr.request_no, mr.status, customer.name AS customer_name,
+               customer.email AS customer_email, appliance_type.code AS appliance_type_code,
+               appliance_type.name AS appliance_type_name, mr.origin_address,
+               mr.destination_address, mr.desired_start_at, mr.created_at,
+               latest.status AS latest_quote_status, latest.total_amount AS latest_quote_total_amount
+        FROM move_request mr
+        JOIN app_user customer ON customer.id = mr.customer_id
+        JOIN move_item mi ON mi.move_request_id = mr.id
+        JOIN appliance_type ON appliance_type.id = mi.appliance_type_id
+        LEFT JOIN LATERAL (
+            SELECT q.status, q.total_amount
+            FROM quote q
+            WHERE q.move_request_id = mr.id
+            ORDER BY q.version_no DESC
+            LIMIT 1
+        ) latest ON true
+        WHERE mr.status IN ('SUBMITTED', 'QUOTED')
+          AND NOT EXISTS (
+              SELECT 1 FROM quote accepted
+              WHERE accepted.move_request_id = mr.id AND accepted.status = 'ACCEPTED'
+          )
+          AND NOT EXISTS (
+              SELECT 1 FROM reservation r WHERE r.move_request_id = mr.id
+          )
+        ORDER BY mr.created_at, mr.id
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="nextQuoteVersion" resultType="int">
+        SELECT COALESCE(max(version_no), 0) + 1
+        FROM quote
+        WHERE move_request_id = #{requestId}
+    </select>
+
+    <update id="expireIssuedQuotes">
+        UPDATE quote
+        SET status = 'EXPIRED', updated_at = now()
+        WHERE move_request_id = #{requestId} AND status = 'ISSUED'
+    </update>
+
+    <insert id="insertQuote">
+        INSERT INTO quote (
+            id, quote_no, move_request_id, version_no, status,
+            subtotal_amount, discount_amount, tax_amount, total_amount,
+            currency, calculation_snapshot, issued_at, expires_at
+        )
+        VALUES (
+            #{id}, #{quoteNo}, #{requestId}, #{version}, 'ISSUED',
+            #{subtotal}, #{discount}, #{tax}, #{total}, 'KRW',
+            jsonb_build_object(
+                'carryingDistanceMeters', #{conditions.carryingDistanceMeters},
+                'floorCount', #{conditions.floorCount},
+                'additionalPipingMeters', #{conditions.additionalPipingMeters},
+                'taxRatePercent', #{taxRate}
+            ),
+            #{issuedAt}, #{expiresAt}
+        )
+    </insert>
+
+    <insert id="insertQuoteLine">
+        INSERT INTO quote_line (
+            id, quote_id, line_code, description, quantity, unit_price, line_amount, rule_snapshot
+        )
+        VALUES (
+            #{id}, #{quoteId}, #{line.lineCode}, #{line.description}, #{line.quantity},
+            #{line.unitPrice}, #{line.lineAmount},
+            jsonb_build_object(
+                'ruleId', #{line.ruleId},
+                'ruleCode', #{line.lineCode},
+                'version', #{line.ruleVersion},
+                'conditionCode', #{line.conditionCode},
+                'calculationType', #{line.calculationType},
+                'configuredAmount', #{line.configuredAmount},
+                'applianceTypeCode', CAST(#{line.applianceTypeCode} AS text)
+            )
+        )
+    </insert>
+
+    <update id="snapshotAppliedRules">
+        UPDATE quote
+        SET calculation_snapshot = calculation_snapshot || jsonb_build_object(
+            'appliedRules',
+            COALESCE((
+                SELECT jsonb_agg(rule_snapshot ORDER BY id)
+                FROM quote_line
+                WHERE quote_id = #{quoteId}
+            ), '[]'::jsonb)
+        )
+        WHERE id = #{quoteId}
+    </update>
+
+    <update id="updateRequestAsQuoted">
+        UPDATE move_request
+        SET status = 'QUOTED', updated_at = now()
+        WHERE id = #{requestId}
+    </update>
+
+    <select id="ownsRequest" resultType="boolean">
+        SELECT EXISTS (
+            SELECT 1 FROM move_request
+            WHERE id = #{requestId} AND customer_id = #{customerId}
+        )
+    </select>
+
+    <select id="findQuotes" resultMap="quoteHeader">
+        SELECT id, quote_no, version_no, status, currency, subtotal_amount,
+               discount_amount, tax_amount, total_amount, issued_at, expires_at
+        FROM quote
+        WHERE move_request_id = #{requestId}
+        ORDER BY version_no DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countQuotes" resultType="long">
+        SELECT count(*) FROM quote WHERE move_request_id = #{requestId}
+    </select>
+
+    <select id="findQuote" resultMap="quoteHeader">
+        SELECT id, quote_no, version_no, status, currency, subtotal_amount,
+               discount_amount, tax_amount, total_amount, issued_at, expires_at
+        FROM quote
+        WHERE id = #{quoteId} AND move_request_id = #{requestId}
+    </select>
+
+    <select id="findQuoteLines" resultMap="quoteLineWithQuoteId">
+        SELECT quote_id, line_code, description, quantity, unit_price, line_amount
+        FROM quote_line
+        WHERE quote_id IN
+        <foreach collection="quoteIds" item="quoteId" open="(" separator="," close=")">
+            #{quoteId}
+        </foreach>
+        ORDER BY quote_id, id
+    </select>
+
+    <select id="findQuoteLinesForQuote" resultMap="quoteLine">
+        SELECT line_code, description, quantity, unit_price, line_amount
+        FROM quote_line
+        WHERE quote_id = #{quoteId}
+        ORDER BY id
+    </select>
+
+    <select id="lockQuoteForAcceptance" resultMap="quoteAcceptanceState">
+        SELECT mr.id AS request_id, q.status, q.expires_at, mr.status AS request_status,
+               q.version_no = (
+                   SELECT max(latest.version_no)
+                   FROM quote latest
+                   WHERE latest.move_request_id = q.move_request_id
+               ) AS is_latest
+        FROM quote q
+        JOIN move_request mr ON mr.id = q.move_request_id
+        WHERE q.id = #{quoteId} AND mr.customer_id = #{customerId}
+        FOR UPDATE OF mr, q
+    </select>
+
+    <update id="expireOtherIssuedQuotes">
+        UPDATE quote
+        SET status = 'EXPIRED', updated_at = now()
+        WHERE move_request_id = #{requestId} AND status = 'ISSUED' AND id &lt;&gt; #{quoteId}
+    </update>
+
+    <update id="acceptQuote">
+        UPDATE quote
+        SET status = 'ACCEPTED', updated_at = now()
+        WHERE id = #{quoteId}
+    </update>
+</mapper>

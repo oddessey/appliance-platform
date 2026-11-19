@@ -186,8 +186,8 @@
         VALUES (
             #{id,typeHandler=com.platform.reservation.UuidTypeHandler}, #{reservationNo},
             #{requestId,typeHandler=com.platform.reservation.UuidTypeHandler},
-            #{quoteId,typeHandler=com.platform.reservation.UuidTypeHandler}, 'CONFIRMED',
-            #{startAt}, #{endAt}, #{customerMemo}, now(), #{idempotencyKey}, #{requestHash}
+            #{quoteId,typeHandler=com.platform.reservation.UuidTypeHandler}, 'PENDING',
+            #{startAt}, #{endAt}, #{customerMemo}, null, #{idempotencyKey}, #{requestHash}
         )
         ON CONFLICT (idempotency_key) WHERE idempotency_key IS NOT NULL DO NOTHING
         RETURNING id
